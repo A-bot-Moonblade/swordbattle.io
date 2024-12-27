@@ -1,7 +1,7 @@
 const Evolution = require('./BasicEvolution');
 const Types = require('../Types');
 
-module.exports = class Rook extends Evolution {
+module.exports = class Jouster extends Evolution {
   static type = Types.Evolution.Jouster;
   static level = 27;
   static previousEvol = Types.Evolution.Rook;
