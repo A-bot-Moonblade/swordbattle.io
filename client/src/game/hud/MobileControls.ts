@@ -55,6 +55,8 @@ export default class MobileControls extends HudComponent {
     const text = isCooldown ? self.abilityCooldown.toFixed(1)
       : (isActivated ? self.abilityDuration.toFixed(1) : '');
     this.abilityCooldown.text = text;
+
+    const texture = self.abilityCooldown ? 'abilityButton' : 'abilitycooldownButton';
   }
 
   setShow(show: boolean, force?: boolean): void {
