@@ -7,12 +7,13 @@ const helpers = require('../../helpers');
 
 // size, coins, health, weight
 const rarities = [
-  [200, 50, 1, 75], 
-  [350, 150, 30, 13],
-  [400, 250, 70, 6],
-  [750, 750, 200, 4],
-  [1050, 2000, 430, 3],
-  [1500, 6000, 1000, 1.5],
+  [370, 100, 1, 75], 
+  [520, 200, 30, 10],
+  [520, 250, 50, 10],
+  [750, 850, 200, 4],
+  [1050, 2200, 430, 3],
+  [1500, 6000, 2000, 1.5],
+  [2000, 12000, 1000, 0.3],
 ];
 
 let totalWeight = rarities.reduce((acc, rarity) => acc + rarity[3], 0);
@@ -39,8 +40,8 @@ class Chest extends Entity {
     this.shape = Polygon.createFromRectangle(0, 0, this.size, this.size * 0.6);
     this.targets.push(Types.Entity.Sword);
 
-    // Despawn coin after 20 minutes
-    this.despawnTime = Date.now() + (1000 * 60 * 20);
+    // Despawn coin after 10 minutes
+    this.despawnTime = Date.now() + (1000 * 60 * 10);
 
     this.spawn();
   }

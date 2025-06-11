@@ -3,7 +3,7 @@ const Types = require('../Types');
 
 module.exports = class Samurai extends Evolution {
   static type = Types.Evolution.Samurai;
-  static level = 22;
+  static level = 25;
   static previousEvol = Types.Evolution.Tank;
   static abilityDuration = 6;
   static abilityCooldown = 60;

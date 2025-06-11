@@ -88,6 +88,7 @@ export default class Game extends Phaser.Scene {
     this.load.image('chest4', publicPath + '/assets/game/Chest4.png');
     this.load.image('chest5', publicPath + '/assets/game/Chest5.png');
     this.load.image('chest6', publicPath + '/assets/game/Chest6.png');
+    this.load.image('chest7', publicPath + '/assets/game/Chest7.png');
 
     this.load.image('crown', publicPath + '/assets/game/player/crown-new.png');
 

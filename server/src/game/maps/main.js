@@ -290,7 +290,7 @@ module.exports = {
         },
         {
           type: Types.Entity.Chest,
-          amount: 18,
+          amount: 20,
           position: 'random',
           respawnable: true,
         },
