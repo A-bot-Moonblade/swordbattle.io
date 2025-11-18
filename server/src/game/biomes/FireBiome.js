@@ -8,8 +8,7 @@ class FireBiome extends Biome {
   }
 
   applyEffects(player) {
-    player.health.max.multiplier *= 1.1;
-    player.sword.damage.multiplier *= 0.9;
+    // Neutral biome - no special effects
   }
 }
 

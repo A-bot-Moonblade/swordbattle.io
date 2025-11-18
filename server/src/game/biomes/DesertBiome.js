@@ -8,9 +8,7 @@ class DesertBiome extends Biome {
   }
 
   applyEffects(player) {
-    // Desert effects: slightly faster movement, reduced health
-    player.speed.multiplier *= 1.05; // +5% speed
-    player.health.max.multiplier *= 0.95; // -5% max health
+    // Neutral biome - no special effects
   }
 
   collides(player, response) {
