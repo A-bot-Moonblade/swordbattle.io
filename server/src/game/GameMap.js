@@ -7,6 +7,7 @@ const IceBiome = require('./biomes/IceBiome');
 const River = require('./biomes/River');
 const Safezone = require('./biomes/Safezone');
 const Island = require('./biomes/Island');
+const DesertBiome = require('./biomes/DesertBiome');
 const House1 = require('./entities/mapObjects/House1');
 const MossyRock = require('./entities/mapObjects/MossyRock');
 const Pond = require('./entities/mapObjects/Pond');
@@ -221,6 +222,7 @@ spawnCoinsInShape(shape, totalCoinValue, droppedBy) {
       case Types.Biome.Fire: BiomeClass = FireBiome; break;
       case Types.Biome.Ice: BiomeClass = IceBiome; break;
       case Types.Biome.Island: BiomeClass = Island; break;
+      case Types.Biome.Desert: BiomeClass = DesertBiome; break;
     }
 
     const biome = new BiomeClass(this.game, biomeData);

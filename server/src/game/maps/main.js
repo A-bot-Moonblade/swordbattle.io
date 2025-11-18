@@ -335,14 +335,95 @@ module.exports = {
       ],
     },
 
-    // Bottom Triangle - Earth Biome
+    // Bottom Triangle - Desert Biome (using ice entities as placeholder)
     {
-      type: Types.Biome.Earth,
+      type: Types.Biome.Desert,
       pos: [-30000, 30000],
       points: [
         [0, 0],
         [60000, 0],
         [30000, -30000],
+      ],
+      objects: [
+        {
+          type: Types.Entity.IceMound,
+          amount: 70,
+          position: 'random',
+          size: [300, 700],
+        },
+        {
+          type: Types.Entity.IceSpike,
+          amount: 40,
+          position: 'random',
+          size: [200, 600],
+        },
+        {
+          type: Types.Entity.IcePond,
+          amount: 22,
+          position: 'random',
+          size: [600, 900],
+        },
+        {
+          type: Types.Entity.IcePond,
+          amount: 2,
+          position: 'random',
+          size: 3000,
+        },
+        {
+          type: Types.Entity.Yeti,
+          amount: 12,
+          position: 'random',
+          respawnable: true,
+          size: [80, 110],
+        },
+        {
+          type: Types.Entity.Wolf,
+          amount: 12,
+          position: 'random',
+          respawnable: true,
+          size: [85, 105],
+        },
+        {
+          type: Types.Entity.Yeti,
+          amount: 2,
+          position: 'random',
+          respawnable: true,
+          respawnTime: [60 * 7, 60 * 17], // 7-17 minutes
+          size: [300, 400],
+          health: 750,
+          isBoss: true,
+          damage: 4,
+          speed: 20,
+        },
+        {
+          type: Types.Entity.Chest,
+          amount: 40,
+          position: 'random',
+          respawnable: true,
+        },
+        {
+          type: Types.Entity.Coin,
+          amount: 1000,
+          position: 'random',
+          respawnable: true,
+        },
+        {
+          type: Types.Entity.Rock,
+          amount: 10,
+          position: 'random',
+          size: [200, 400],
+        },
+      ],
+    },
+
+    // Left Triangle - Earth Biome
+    {
+      type: Types.Biome.Earth,
+      pos: [-30000, -30000],
+      points: [
+        [0, 0],
+        [0, 60000],
+        [30000, 30000],
       ],
       objects: [
         {
@@ -428,87 +509,6 @@ module.exports = {
           rotationSpeed: 10,
           swordSize: 100,
           boulderSize: 200,
-        },
-      ],
-    },
-
-    // Left Triangle - Ice Biome (second ice biome for symmetry)
-    {
-      type: Types.Biome.Ice,
-      pos: [30000, 30000],
-      points: [
-        [0, 0],
-        [0, -60000],
-        [-30000, -30000],
-      ],
-      objects: [
-        {
-          type: Types.Entity.IceMound,
-          amount: 70,
-          position: 'random',
-          size: [300, 700],
-        },
-        {
-          type: Types.Entity.IceSpike,
-          amount: 40,
-          position: 'random',
-          size: [200, 600],
-        },
-        {
-          type: Types.Entity.IcePond,
-          amount: 22,
-          position: 'random',
-          size: [600, 900],
-        },
-        {
-          type: Types.Entity.IcePond,
-          amount: 2,
-          position: 'random',
-          size: 3000,
-        },
-        {
-          type: Types.Entity.Yeti,
-          amount: 12,
-          position: 'random',
-          respawnable: true,
-          size: [80, 110],
-        },
-        {
-          type: Types.Entity.Wolf,
-          amount: 12,
-          position: 'random',
-          respawnable: true,
-          size: [85, 105],
-        },
-        {
-          type: Types.Entity.Yeti,
-          amount: 2,
-          position: 'random',
-          respawnable: true,
-          respawnTime: [60 * 7, 60 * 17], // 7-17 minutes
-          size: [300, 400],
-          health: 750,
-          isBoss: true,
-          damage: 4,
-          speed: 20,
-        },
-        {
-          type: Types.Entity.Chest,
-          amount: 40,
-          position: 'random',
-          respawnable: true,
-        },
-        {
-          type: Types.Entity.Coin,
-          amount: 1000,
-          position: 'random',
-          respawnable: true,
-        },
-        {
-          type: Types.Entity.Rock,
-          amount: 10,
-          position: 'random',
-          size: [200, 400],
         },
       ],
     },
