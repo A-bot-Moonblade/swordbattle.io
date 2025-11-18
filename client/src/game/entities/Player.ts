@@ -6,10 +6,65 @@ import { BiomeTypes, EntityTypes, FlagTypes, InputTypes, EvolutionTypes } from '
 import { random } from '../../helpers';
 import { Settings } from '../Settings';
 import * as cosmetics from '../cosmetics.json';
+import api from '../../api';
 const {skins} = cosmetics;
 
 const particlePool: Phaser.GameObjects.Sprite[] = [];
 const graphicsPool: Phaser.GameObjects.Graphics[] = [];
+
+// Clan color cache
+const clanColorCache: Map<string, string> = new Map();
+
+// Fetch clan color from API
+async function fetchClanColor(clanTag: string): Promise<string> {
+  if (clanColorCache.has(clanTag)) {
+    return clanColorCache.get(clanTag)!;
+  }
+
+  try {
+    const response = await fetch(`${api.endpoint}/clans/tag/${clanTag}`);
+    const clan = await response.json();
+
+    if (clan && clan.mainColor) {
+      const color = getClanColorHex(clan.mainColor);
+      clanColorCache.set(clanTag, color);
+      return color;
+    }
+  } catch (error) {
+    // If clan fetch fails, use default gold color
+  }
+
+  const defaultColor = '#ffd700';
+  clanColorCache.set(clanTag, defaultColor);
+  return defaultColor;
+}
+
+// Convert clan color name to hex
+function getClanColorHex(colorName: string): string {
+  const colorMap: { [key: string]: string } = {
+    red: '#ff0000',
+    orange: '#ff8800',
+    yellow: '#ffff00',
+    green: '#00ff00',
+    blue: '#0088ff',
+    violet: '#8800ff',
+    white: '#ffffff',
+    black: '#000000',
+    gray: '#888888',
+    brown: '#8b4513',
+    maroon: '#800000',
+    pumpkin: '#ff4500',
+    cyan: '#00ffff',
+    pink: '#ff69b4',
+    lime: '#00ff00',
+    indigo: '#4b0082',
+    magenta: '#ff00ff',
+    silver: '#c0c0c0',
+    gold: '#ffd700',
+    copper: '#b87333'
+  };
+  return colorMap[colorName] || '#ffd700';
+}
 
 function getParticle(game: Phaser.Scene, key: string) {
   let p = particlePool.pop();
@@ -113,11 +168,7 @@ class Player extends BaseEntity {
       line: 0,
       offsetY: -this.body.height / 2 - 40,
     });
-    const displayName = this.clan ? `[${this.clan}] ${this.name}`.replace(/\s+/, ' ') : this.name;
-    const name = this.game.add.text(0, -this.body.height / 2 - 50, displayName);
-    name.setFontFamily('Arial');
-    name.setFontSize(50);
-    name.setOrigin(0.5, 1);
+
     const specialColors: {
       [key: string]: string
     } = {
@@ -128,17 +179,57 @@ class Player extends BaseEntity {
       amethystbladeyt: '#7802ab',
     };
 
-    const applyNameColor = (hex: string) => {
-      name.setFill(hex);
-    };
-
+    // Determine name color
+    let nameColor = '#000000'; // Default for guests
     const special = specialColors[this.name?.toLowerCase() as keyof typeof specialColors];
     if (special) {
-      applyNameColor(special);
+      nameColor = special;
     } else if (this.account) {
-      applyNameColor('#0000ff');
+      nameColor = '#0000ff';
+    }
+
+    // Create name with colored clan tag
+    if (this.clan) {
+      // Create clan tag text
+      const clanText = this.game.add.text(0, -this.body.height / 2 - 50, `[${this.clan}] `);
+      clanText.setFontFamily('Arial');
+      clanText.setFontSize(50);
+      clanText.setOrigin(0.5, 1);
+      clanText.setFill('#ffd700'); // Default gold color, will be updated
+
+      // Fetch and apply clan color asynchronously
+      if (this.clan) {
+        fetchClanColor(this.clan).then(color => {
+          if (clanText.active) {
+            clanText.setFill(color);
+          }
+        });
+      }
+
+      // Create player name text
+      const nameText = this.game.add.text(0, -this.body.height / 2 - 50, `${this.clan ? '' : ''}${this.name}`.replace(/\s+/, ' '));
+      nameText.setFontFamily('Arial');
+      nameText.setFontSize(50);
+      nameText.setOrigin(0.5, 1);
+      nameText.setFill(nameColor);
+
+      // Calculate positions for proper alignment
+      const clanWidth = clanText.width;
+      const nameWidth = nameText.width;
+      const totalWidth = clanWidth + nameWidth;
+
+      clanText.setX(-totalWidth / 2 + clanWidth / 2);
+      nameText.setX(-totalWidth / 2 + clanWidth + nameWidth / 2);
+
+      this.bodyContainer.add([clanText, nameText]);
     } else {
-      applyNameColor('#000000');
+      // No clan, just create regular name
+      const name = this.game.add.text(0, -this.body.height / 2 - 50, this.name);
+      name.setFontFamily('Arial');
+      name.setFontSize(50);
+      name.setOrigin(0.5, 1);
+      name.setFill(nameColor);
+      this.bodyContainer.add(name);
     }
 
     this.messageText = this.game.add.text(0, -this.body.height / 2 - 100, '')
