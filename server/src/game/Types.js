@@ -107,6 +107,7 @@ module.exports = {
     Ice: 3,
     River: 4,
     Safezone: 5,
+    Island: 6,
   },
   Shape: {
     Point: 1,
