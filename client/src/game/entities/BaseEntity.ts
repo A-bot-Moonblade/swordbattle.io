@@ -81,6 +81,7 @@ export class BaseEntity {
     this.updateRotation();
     this.updateWorldDepth();
     this.healthBar?.update(dt);
+    this.armorBar?.update(dt);
   }
 
   updateRotation() {
@@ -99,6 +100,7 @@ export class BaseEntity {
 
     const show = self.depth === this.depth || this.depth === 0;
     if (this.healthBar) this.healthBar.hidden = !show;
+    if (this.armorBar) this.armorBar.hidden = !show;
     if (this.hidden !== show) {
       // console.log('show', show, this.constructor.name);
       this.game.tweens.add({
@@ -120,6 +122,11 @@ export class BaseEntity {
         if (this.healthBar && typeof this.healthBar.destroy === 'function') {
           this.healthBar.destroy();
           this.healthBar = undefined;
+        }
+
+        if (this.armorBar && typeof this.armorBar.destroy === 'function') {
+          this.armorBar.destroy();
+          this.armorBar = undefined;
         }
 
         if (this.container) {
