@@ -29,9 +29,11 @@ import './App.scss';
 import GemCount from './ValueCnt';
 import ShopButton from './ShopButton';
 import InventoryButton from './InventoryButton';
+import ClanButton from './ClanButton';
 import LeaderboardButton from './LeaderboardButton';
 import ShopModal from './modals/ShopModal';
 import InventoryModal from './modals/InventoryModal';
+import ClanModal from './modals/ClanModal';
 import MigrationModal from './modals/MigrationModal';
 import { getCookies, playVideoAd } from '../helpers';
 import Ad from './Ad';
@@ -831,10 +833,14 @@ function App() {
     setModal(<ShopModal account={account} />);
   }
 
-  
+
   const openInventory = () => {
     setModal(<InventoryModal account={account} />);
   }
+
+  const openClan = () => {
+    setModal(<ClanModal account={account} />);
+  };
 
   const openLeaderboard = () => {
     window.location.hash = "#/leaderboard";
@@ -889,6 +895,7 @@ function App() {
         {account?.isLoggedIn && (
           <InventoryButton account={account} scale={scale.factor} openInventory={openInventory} />
           )}
+        <ClanButton account={account} scale={scale.factor} openClan={openClan} />
         <LeaderboardButton scale={scale.factor} openLeaderboard={openLeaderboard} />
             <div id="contentt" style={scale.styles}>
 
