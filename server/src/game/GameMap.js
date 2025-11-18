@@ -38,7 +38,7 @@ const SwordProj = require('./entities/SwordProj');
 const Snowball = require('./entities/Snowball');
 const Timer = require('./components/Timer');
 const Types = require('./Types');
-const map = require('./maps/main');
+const map = require('./maps'); // Dynamically loads active map from maps/index.js
 const helpers = require('../helpers');
 const config = require('../config');
 
