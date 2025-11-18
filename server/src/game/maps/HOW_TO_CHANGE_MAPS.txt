@@ -1,0 +1,114 @@
+===============================================================================
+                     HOW TO CHANGE MAPS - QUICK GUIDE
+===============================================================================
+
+THREE WAYS TO SWITCH MAPS:
+
+Method 1: Environment Variable (Recommended)
+---------------------------------------------
+Set ACTIVE_MAP before starting the server:
+
+  Linux/Mac:
+    export ACTIVE_MAP=main
+    npm start
+
+    Or in one line:
+    ACTIVE_MAP=main npm start
+
+  Windows (Command Prompt):
+    set ACTIVE_MAP=main
+    npm start
+
+  Windows (PowerShell):
+    $env:ACTIVE_MAP="main"
+    npm start
+
+
+Method 2: Edit config.js
+-------------------------
+Edit server/src/config.js and change line 72:
+
+  activeMap: 'main', // Change to your desired map name
+
+
+Method 3: .env File
+-------------------
+Add to your .env file:
+
+  ACTIVE_MAP=main
+
+
+===============================================================================
+                     HOW TO CREATE A NEW MAP
+===============================================================================
+
+1. Copy an existing map file as template:
+
+   cd server/src/game/maps
+   cp main.js winter.js
+
+
+2. Edit your new map file (winter.js):
+
+   - Modify biome types, positions, and shapes
+   - Adjust entity spawns and quantities
+   - Change biome effects if needed
+
+
+3. Register the map in index.js:
+
+   const maps = {
+     main: require('./main'),
+     winter: require('./winter'), // Add this line
+   };
+
+
+4. Activate your map:
+
+   ACTIVE_MAP=winter npm start
+
+
+===============================================================================
+                          AVAILABLE BIOME TYPES
+===============================================================================
+
+Types.Biome.Fire      - Fire biome (+10% health, -10% damage)
+Types.Biome.Earth     - Earth biome (-10% speed, +5% damage)
+Types.Biome.Ice       - Ice biome (slipping effect, +10% swing duration)
+Types.Biome.River     - River biome (+25% speed, -20% zoom)
+Types.Biome.Safezone  - Safe spawn area (no PvP)
+Types.Biome.Island    - Neutral island (no special effects)
+Types.Biome.Desert    - Desert biome (+5% speed, -5% max health)
+
+
+===============================================================================
+                          BIOME SHAPE EXAMPLES
+===============================================================================
+
+Circle Shape:
+-------------
+{
+  type: Types.Biome.Island,
+  pos: [0, 0],
+  radius: 4000,
+}
+
+
+Triangle/Polygon Shape:
+-----------------------
+{
+  type: Types.Biome.Ice,
+  pos: [-30000, -30000],    // Origin point
+  points: [                 // Vertices relative to pos
+    [0, 0],                // Point 1
+    [60000, 0],            // Point 2
+    [30000, 30000],        // Point 3
+  ],
+}
+
+
+===============================================================================
+
+For full documentation, see README.md in this directory.
+
+===============================================================================
