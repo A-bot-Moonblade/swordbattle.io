@@ -118,6 +118,9 @@ const ClanModal: React.FC<ClanModalProps> = ({ account }) => {
   const [showInviteInput, setShowInviteInput] = useState(false);
   const [inputInviteCode, setInputInviteCode] = useState('');
 
+  // User ID
+  const [userId, setUserId] = useState<number | null>(null);
+
   // Loading state
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -126,6 +129,17 @@ const ClanModal: React.FC<ClanModalProps> = ({ account }) => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [userClan?.chatMessages, userClan?.announcements]);
+
+  // Fetch user ID on mount
+  useEffect(() => {
+    if (account.isLoggedIn) {
+      api.post(`${api.endpoint}/profile/getPrivateUserInfo`, {}, (data: any) => {
+        if (data && data.account) {
+          setUserId(data.account.id);
+        }
+      });
+    }
+  }, [account.isLoggedIn]);
 
   // Fetch all clans on mount
   useEffect(() => {
@@ -287,7 +301,7 @@ const ClanModal: React.FC<ClanModalProps> = ({ account }) => {
   };
 
   const leaveClan = async () => {
-    if (!confirm('Are you sure you want to leave the clan? You will be removed in 3 hours.')) {
+    if (!window.confirm('Are you sure you want to leave the clan? You will be removed in 3 hours.')) {
       return;
     }
 
@@ -407,7 +421,7 @@ const ClanModal: React.FC<ClanModalProps> = ({ account }) => {
   };
 
   const kickMember = async (memberId: number) => {
-    if (!userClan || !confirm('Are you sure you want to kick this member?')) return;
+    if (!userClan || !window.confirm('Are you sure you want to kick this member?')) return;
 
     api.post(`${api.endpoint}/clans/${userClan.id}/kick/${memberId}`, {}, (data) => {
       if (data.error) {
@@ -420,7 +434,7 @@ const ClanModal: React.FC<ClanModalProps> = ({ account }) => {
   };
 
   const banMember = async (memberId: number) => {
-    if (!userClan || !confirm('Are you sure you want to ban this member?')) return;
+    if (!userClan || !window.confirm('Are you sure you want to ban this member?')) return;
 
     api.post(`${api.endpoint}/clans/${userClan.id}/ban/${memberId}`, {}, (data) => {
       if (data.error) {
@@ -471,7 +485,7 @@ const ClanModal: React.FC<ClanModalProps> = ({ account }) => {
   };
 
   const declareWar = async (targetClanId: number) => {
-    if (!userClan || !confirm('Are you sure you want to declare war on this clan?')) return;
+    if (!userClan || !window.confirm('Are you sure you want to declare war on this clan?')) return;
 
     api.post(`${api.endpoint}/clans/${userClan.id}/war/declare/${targetClanId}`, {}, (data) => {
       if (data.error) {
@@ -483,10 +497,10 @@ const ClanModal: React.FC<ClanModalProps> = ({ account }) => {
     });
   };
 
-  const isOwner = userClan && account.id === userClan.ownerId;
-  const isCoOwner = userClan && userClan.coOwnerIds.includes(account.id);
-  const isOfficer = userClan && userClan.officerIds.includes(account.id);
-  const hasPendingLeave = userClan && userClan.pendingLeaves.some((pl: any) => pl.userId === account.id);
+  const isOwner = userClan && userId && userId === userClan.ownerId;
+  const isCoOwner = userClan && userId && userClan.coOwnerIds.includes(userId);
+  const isOfficer = userClan && userId && userClan.officerIds.includes(userId);
+  const hasPendingLeave = userClan && userId && userClan.pendingLeaves.some((pl: any) => pl.userId === userId);
 
   const getColorValue = (color: string): string => {
     const colorMap: { [key: string]: string } = {
@@ -663,7 +677,7 @@ const ClanModal: React.FC<ClanModalProps> = ({ account }) => {
                 </span>
               </div>
 
-              {isUserClan && isOwner && member.id !== account.id && (
+              {isUserClan && isOwner && userId && member.id !== userId && (
                 <div className="member-actions">
                   <select
                     onChange={(e) => setMemberRole(member.id, e.target.value as any)}

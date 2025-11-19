@@ -224,12 +224,12 @@ class Player extends BaseEntity {
       this.bodyContainer.add([clanText, nameText]);
     } else {
       // No clan, just create regular name
-      const name = this.game.add.text(0, -this.body.height / 2 - 50, this.name);
-      name.setFontFamily('Arial');
-      name.setFontSize(50);
-      name.setOrigin(0.5, 1);
-      name.setFill(nameColor);
-      this.bodyContainer.add(name);
+      const playerNameText = this.game.add.text(0, -this.body.height / 2 - 50, this.name);
+      playerNameText.setFontFamily('Arial');
+      playerNameText.setFontSize(50);
+      playerNameText.setOrigin(0.5, 1);
+      playerNameText.setFill(nameColor);
+      this.bodyContainer.add(playerNameText);
     }
 
     this.messageText = this.game.add.text(0, -this.body.height / 2 - 100, '')
@@ -239,7 +239,7 @@ class Player extends BaseEntity {
       .setFill('#ffffff');
 
     this.bodyContainer = this.game.add.container(0, 0, [this.protectionAura, this.swordContainer, this.body, this.evolutionOverlay]);
-    this.container = this.game.add.container(this.shape.x, this.shape.y, [this.bodyContainer, name, this.messageText]);
+    this.container = this.game.add.container(this.shape.x, this.shape.y, [this.bodyContainer, this.messageText]);
 
     if (ogex) {
       try {
