@@ -1,6 +1,55 @@
 import { useEffect, useState } from 'react';
 import { useScale } from '../Scale';
 import './Leaderboard.scss';
+import api from '../../api';
+
+// Clan color cache for leaderboard
+const clanColorCache: Map<string, string> = new Map();
+
+async function fetchClanColorForLeaderboard(clanTag: string): Promise<string> {
+  if (clanColorCache.has(clanTag)) {
+    return clanColorCache.get(clanTag)!;
+  }
+
+  try {
+    const response = await fetch(`${api.endpoint}/clans/tag/${clanTag}`);
+    const clan = await response.json();
+
+    if (clan && clan.mainColor) {
+      const colorMap: { [key: string]: string } = {
+        red: '#ff0000',
+        orange: '#ff8800',
+        yellow: '#ffff00',
+        green: '#00ff00',
+        blue: '#0088ff',
+        violet: '#8800ff',
+        white: '#ffffff',
+        black: '#444444', // Slightly lighter black for visibility
+        gray: '#888888',
+        brown: '#8b4513',
+        maroon: '#800000',
+        pumpkin: '#ff4500',
+        cyan: '#00ffff',
+        pink: '#ff69b4',
+        lime: '#00ff00',
+        indigo: '#4b0082',
+        magenta: '#ff00ff',
+        silver: '#c0c0c0',
+        gold: '#ffd700',
+        copper: '#b87333'
+      };
+      const color = colorMap[clan.mainColor] || '#ffd700';
+      clanColorCache.set(clanTag, color);
+      return color;
+    }
+  } catch (error) {
+    // If clan fetch fails, use default gold color
+  }
+
+  const defaultColor = '#ffd700';
+  clanColorCache.set(clanTag, defaultColor);
+  return defaultColor;
+}
 
 function Leaderboard({ game }: any) {
   const [show, setShow] = useState(true);
@@ -59,6 +108,8 @@ function getRankColor(rank: number) {
 
 function LeaderboardLine({ player }: any) {
   const balance = player.coins >= 1000 ? `${(player.coins / 1000).toFixed(1)}k` : player.coins;
+  const [clanColor, setClanColor] = useState('#ffd700'); // Default gold
+
   const specialColors: {
     [key: string]: string | { gradient: [string, string] };
   } = {
@@ -68,6 +119,15 @@ function LeaderboardLine({ player }: any) {
     "update testing account": '#00ff00',
     amethystbladeyt: '#7802ab',
   };
+
+  // Fetch clan color when component mounts or clan changes
+  useEffect(() => {
+    if (player.account?.clan && player.account?.clan !== "X79Q") {
+      fetchClanColorForLeaderboard(player.account.clan).then(color => {
+        setClanColor(color);
+      });
+    }
+  }, [player.account?.clan]);
 
   let nameStyle: React.CSSProperties = {};
   if (player.account) {
@@ -83,7 +143,7 @@ function LeaderboardLine({ player }: any) {
     <div className="leaderboard-line">
       <span className="leaderboard-place">#{player.place}: </span>
       {player.account?.clan && player.account?.clan !== "X79Q" && (
-        <span className="leaderboard-clan" style={{ color: 'yellow' }}>
+        <span className="leaderboard-clan" style={{ color: clanColor }}>
           [{player.account.clan}]{' '}
         </span>
       )}
