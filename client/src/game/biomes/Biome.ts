@@ -41,6 +41,8 @@ class Biome {
       case BiomeTypes.Ice: texture = 'iceTile'; break;
       case BiomeTypes.River: texture = 'river'; break;
       case BiomeTypes.Safezone: texture = 'safezone'; break;
+      case BiomeTypes.Island: texture = 'earthTile'; break;
+      case BiomeTypes.Desert: texture = 'iceTile'; break; // Using ice texture as placeholder
     }
 
     const graphics = this.scene.make.graphics();

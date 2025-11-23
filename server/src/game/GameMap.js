@@ -6,6 +6,8 @@ const FireBiome = require('./biomes/FireBiome');
 const IceBiome = require('./biomes/IceBiome');
 const River = require('./biomes/River');
 const Safezone = require('./biomes/Safezone');
+const Island = require('./biomes/Island');
+const DesertBiome = require('./biomes/DesertBiome');
 const House1 = require('./entities/mapObjects/House1');
 const MossyRock = require('./entities/mapObjects/MossyRock');
 const Pond = require('./entities/mapObjects/Pond');
@@ -36,7 +38,7 @@ const SwordProj = require('./entities/SwordProj');
 const Snowball = require('./entities/Snowball');
 const Timer = require('./components/Timer');
 const Types = require('./Types');
-const map = require('./maps/main');
+const map = require('./maps'); // Dynamically loads active map from maps/index.js
 const helpers = require('../helpers');
 const config = require('../config');
 
@@ -44,6 +46,7 @@ class GameMap {
   constructor(game) {
     this.game = game;
     this.biomes = [];
+    this.safezones = [];
     this.staticObjects = [];
     this.x = 0;
     this.y = 0;
@@ -218,18 +221,31 @@ spawnCoinsInShape(shape, totalCoinValue, droppedBy) {
       case Types.Biome.Earth: BiomeClass = EarthBiome; break;
       case Types.Biome.Fire: BiomeClass = FireBiome; break;
       case Types.Biome.Ice: BiomeClass = IceBiome; break;
+      case Types.Biome.Island: BiomeClass = Island; break;
+      case Types.Biome.Desert: BiomeClass = DesertBiome; break;
     }
 
     const biome = new BiomeClass(this.game, biomeData);
     this.biomes.push(biome);
     if (biome.type === Types.Biome.Safezone) {
-      this.safezone = biome;
+      this.safezones.push(biome);
+      // Keep backwards compatibility with single safezone reference
+      if (!this.safezone) {
+        this.safezone = biome;
+      }
     }
     return biome;
   }
 
   spawnPlayer(player) {
-    this.safezone.shape.randomSpawnInside(player.shape);
+    // Randomly select one of the safezones to spawn the player
+    if (this.safezones.length > 0) {
+      const randomSafezone = this.safezones[Math.floor(Math.random() * this.safezones.length)];
+      randomSafezone.shape.randomSpawnInside(player.shape);
+    } else if (this.safezone) {
+      // Fallback to single safezone for backwards compatibility
+      this.safezone.shape.randomSpawnInside(player.shape);
+    }
   }
 
   calculateMapBounds() {
