@@ -140,7 +140,7 @@
   }
 
   .skin-eventtag {
-    color: cyan;
+    color: orangered;
     font-size: 16px;
     margin-top: -10px;
     text-align: center;
@@ -344,7 +344,7 @@ h1 {
 }
 
 .badges button[data-selected-badge="event"]:not(.active) {
-  background-color: #00ffff;
+  background-color: #ff4500;
 }
 
 .badges button[data-selected-badge="player"]:not(.active) {

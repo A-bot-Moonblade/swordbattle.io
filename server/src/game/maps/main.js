@@ -216,17 +216,25 @@ module.exports = {
         [0, 0],
       ],
       objects: [
+        /*
         {
           type: Types.Entity.MossyRock,
           amount: 10,
           position: 'random',
           size: [500, 700],
         },
+        */
         {
-          type: Types.Entity.Bush,
-          amount: 160,
+          type: Types.Entity.Tree,
+          amount: 50,
           position: 'random',
-          size: [100, 400],
+          size: [700, 800],
+        },
+        {
+          type: Types.Entity.Tree,
+          amount: 20,
+          position: 'random',
+          size: [500, 600],
         },
         {
           type: Types.Entity.Pond,
@@ -250,23 +258,24 @@ module.exports = {
         */
         {
           type: Types.Entity.Pond,
-          amount: 20,
+          amount: 10,
           position: 'random',
-          size: [400, 900],
+          size: [700, 800],
         },
         {
-          type: Types.Entity.Coin,
+          type: Types.Entity.EventToken,
           amount: 500,
           position: 'random',
           respawnable: true,
         },
         {
-          type: Types.Entity.Wolf,
+          type: Types.Entity.WolfCursed,
           amount: 9,
           position: 'random',
           respawnable: true,
           size: [85, 105],
         },
+        /*
         {
           type: Types.Entity.Cat,
           amount: 11,
@@ -274,6 +283,7 @@ module.exports = {
           respawnable: true,
           size: [70, 90],
         },
+        */
         {
           type: Types.Entity.Bunny,
           amount: 18,
@@ -288,18 +298,20 @@ module.exports = {
           size: [200, 400],
         },
         {
-          type: Types.Entity.Moose,
+          type: Types.Entity.MooseCursed,
           amount: 5,
           position: 'random',
           respawnable: true,
           size: [190, 250],
         },
+        /*
         {
           type: Types.Entity.Chest,
           amount: 18,
           position: 'random',
           respawnable: true,
         },
+        
         {
           type: Types.Entity.Ancient,
           amount: 3,
@@ -314,6 +326,7 @@ module.exports = {
           swordSize: 100,
           boulderSize: 200,
         },
+        */
       ],
     },
 

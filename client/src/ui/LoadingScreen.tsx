@@ -40,7 +40,7 @@ function LoadingScreen({ progress }: any) {
   return (
     <div
       className="loading-screen"
-      style={{ opacity, backgroundColor: "#006400", zIndex: 1000 }}
+      style={{ opacity, backgroundColor: "#420606ff", zIndex: 1000 }}
     >
       <div className="loading-container" style={scale.styles}>
         <div className="loading-text">
