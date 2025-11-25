@@ -11,6 +11,7 @@ const LevelSystem = require('../components/LevelSystem');
 const Property = require('../components/Property');
 const Viewport = require('../components/Viewport');
 const Health = require('../components/Health');
+const Armor = require('../components/Armor');
 const Timer = require('../components/Timer');
 const EvolutionSystem = require('../evolutions');
 const Types = require('../Types');
@@ -82,6 +83,7 @@ class Player extends Entity {
       this.speed = new Property(speed);
     }
     this.health = new Health(maxHealth, regeneration);
+    this.armor = new Armor(100, 0.5, 5000); // max 100, regen 0.5/s, wait 5s
     this.friction = new Property(1);
     this.regeneration = new Property(regeneration);
     this.knockbackResistance = new Property(1);
@@ -103,6 +105,21 @@ class Player extends Entity {
 
     this.modifiers = {};
     this.wideSwing = false;
+
+    // Dash mechanic
+    this.dashSpeed = new Property(375); // Distance to dash
+    this.dashDuration = new Property(0.2); // Duration in seconds
+    this.dashCooldown = new Property(5.5); // Cooldown in seconds
+    this.dashActive = false;
+    this.dashCooldownTime = 0;
+    this.dashDurationTime = 0;
+
+    // Block mechanic
+    this.blockActive = false;
+    this.blockStartTime = 0;
+    this.blockSwingAngle = 0;
+    this.blockSwingProgress = 0;
+    this.blockSwingDuration = 0;
 
     this.chatMessage = '';
     this.chatMessageTimer = new Timer(0, 3);
@@ -151,6 +168,15 @@ class Player extends Entity {
     state.swordFlyingCooldown = this.sword.flyCooldownTime;
     state.wideSwing = this.wideSwing;
     state.coinShield = this.coinShield;
+
+    // Combat features
+    state.armorPercent = this.armor.percent;
+    state.dashActive = this.dashActive;
+    state.dashCooldown = this.dashCooldownTime;
+    state.dashDuration = this.dashDurationTime;
+    state.blockActive = this.blockActive;
+    state.blockStartTime = this.blockStartTime;
+
     if (this.removed && this.client) {
       state.disconnectReasonMessage = this.client.disconnectReason.message;
       state.disconnectReasonType = this.client.disconnectReason.type;
@@ -163,6 +189,11 @@ class Player extends Entity {
     this.levels.applyBuffs();
     this.effects.forEach(effect => effect.update(dt));
     this.health.update(dt);
+
+    // Update armor (only regenerates when health is full)
+    const isHealthFull = this.health.percent >= 1;
+    this.armor.update(dt, isHealthFull);
+
     this.applyInputs(dt);
     this.sword.flySpeed.value = clamp(this.speed.value / 10, 100, 200);
     this.sword.update(dt);
@@ -170,6 +201,12 @@ class Player extends Entity {
     if (this.inputs.isInputDown(Types.Input.Ability) && this.evolutions.evolutionEffect.canActivateAbility) {
       this.evolutions.evolutionEffect.activateAbility();
     }
+
+    // Handle dash mechanic
+    this.updateDash(dt);
+
+    // Handle block mechanic
+    this.updateBlock(dt);
 
     this.viewport.zoom.multiplier /= this.shape.scaleRadius.multiplier;
 
@@ -320,9 +357,31 @@ class Player extends Entity {
     this.shape.y = clamp(this.shape.y, -this.game.map.height / 2, this.game.map.height / 2);
   }
 
-  damaged(damage, entity = null) {
+  damaged(damage, entity = null, attackAngle = null) {
     if (this.name !== "Update Testing Account") {
-      this.health.damaged(damage);
+      let finalDamage = damage;
+
+      // Apply armor damage resistance
+      const armorResistance = this.armor.getDamageResistance();
+      finalDamage *= armorResistance;
+
+      // Calculate attack angle from entity position if not provided
+      if (attackAngle === null && entity && entity.shape) {
+        attackAngle = Math.atan2(
+          entity.shape.y - this.shape.y,
+          entity.shape.x - this.shape.x
+        );
+      }
+
+      // Apply block reduction if active and attack is from front
+      if (this.blockActive && attackAngle !== null) {
+        const blockReduction = this.getBlockEffectiveness(attackAngle);
+        finalDamage *= (1 - blockReduction.damageReduction);
+      }
+
+      this.health.damaged(finalDamage);
+      // Armor deteriorates based on original damage (before resistance)
+      this.armor.damaged(damage);
     }
 
     if (this.evolutions && this.evolutions.evolutionEffect && typeof this.evolutions.evolutionEffect.onDamaged === 'function') {
@@ -371,6 +430,131 @@ class Player extends Entity {
 
       this.remove(reason, disconnectType);
     }
+  }
+
+  updateDash(dt) {
+    // Update cooldown
+    if (this.dashCooldownTime > 0) {
+      this.dashCooldownTime = Math.max(0, this.dashCooldownTime - dt);
+    }
+
+    // Update active dash duration
+    if (this.dashActive) {
+      this.dashDurationTime -= dt;
+      if (this.dashDurationTime <= 0) {
+        this.dashActive = false;
+        this.dashDurationTime = 0;
+      }
+    }
+
+    // Activate dash on input
+    if (this.inputs.isInputDown(Types.Input.Dash) && this.dashCooldownTime === 0 && !this.dashActive) {
+      this.activateDash();
+    }
+  }
+
+  activateDash() {
+    // Similar to Rook's Castle Dash ability
+    const lastInput = this.lastDirectionInput ?? 3; // default down
+
+    let angle = Math.PI / 2; // down
+
+    switch (lastInput) {
+      case 1: // up
+        angle = -Math.PI / 2;
+        break;
+      case 2: // right
+        angle = 0;
+        break;
+      case 3: // down
+        angle = Math.PI / 2;
+        break;
+      case 4: // left
+        angle = Math.PI;
+        break;
+    }
+
+    // Teleport player
+    this.shape.x = this.shape.x + (this.dashSpeed.value * Math.cos(angle));
+    this.shape.y = this.shape.y + (this.dashSpeed.value * Math.sin(angle));
+
+    // Clamp to map bounds
+    this.shape.x = clamp(this.shape.x, -this.game.map.width / 2, this.game.map.width / 2);
+    this.shape.y = clamp(this.shape.y, -this.game.map.height / 2, this.game.map.height / 2);
+
+    // Set dash as active
+    this.dashActive = true;
+    this.dashDurationTime = this.dashDuration.value;
+    this.dashCooldownTime = this.dashCooldown.value;
+  }
+
+  updateBlock(dt) {
+    const blockInput = this.inputs.isInputDown(Types.Input.Block);
+
+    if (blockInput && !this.blockActive) {
+      // Start blocking
+      this.blockActive = true;
+      this.blockStartTime = Date.now();
+      this.blockSwingProgress = 0;
+      this.blockSwingDuration = this.sword.swingDuration.value * 0.9; // 90% of swing speed
+    } else if (!blockInput && this.blockActive) {
+      // Stop blocking
+      this.blockActive = false;
+      this.blockStartTime = 0;
+    }
+
+    // Update block animation progress
+    if (this.blockActive) {
+      this.blockSwingProgress = Math.min(this.blockSwingProgress + dt / this.blockSwingDuration, 1);
+    }
+  }
+
+  /**
+   * Calculate block effectiveness based on timing and attack angle
+   * @param {number} attackAngle - Angle of incoming attack
+   * @returns {object} - {damageReduction, knockbackReduction}
+   */
+  getBlockEffectiveness(attackAngle) {
+    if (!this.blockActive) {
+      return { damageReduction: 0, knockbackReduction: 0 };
+    }
+
+    // Check if attack is from the front (within ~120 degree arc in front of player)
+    const playerFacing = this.angle;
+    let angleDiff = Math.abs(attackAngle - playerFacing);
+    // Normalize angle difference to 0-180 range
+    if (angleDiff > Math.PI) {
+      angleDiff = 2 * Math.PI - angleDiff;
+    }
+
+    // If attack is from side or back (>60 degrees from facing), no block
+    if (angleDiff > Math.PI / 3) {
+      return { damageReduction: 0, knockbackReduction: 0 };
+    }
+
+    // Calculate time since block started
+    const blockDuration = (Date.now() - this.blockStartTime) / 1000; // in seconds
+
+    let damageReduction = 0;
+    let knockbackReduction = 0;
+
+    // Time-based effectiveness
+    if (blockDuration <= 0.25) {
+      damageReduction = 1.0; // 100% damage block
+      knockbackReduction = 0.9; // 90% knockback block
+    } else if (blockDuration <= 0.5) {
+      damageReduction = 0.85; // 85% damage block
+      knockbackReduction = 0.75; // 75% knockback block
+    } else if (blockDuration <= 0.75) {
+      damageReduction = 0.6; // 60% damage block
+      knockbackReduction = 0.5; // 50% knockback block
+    } else if (blockDuration <= 1.0) {
+      damageReduction = 0.3; // 30% damage block
+      knockbackReduction = 0.25; // 25% knockback block
+    }
+    // After 1 second, no effect (already returns 0)
+
+    return { damageReduction, knockbackReduction };
   }
 
   addEffect(type, id, config) {

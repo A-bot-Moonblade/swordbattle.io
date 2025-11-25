@@ -86,6 +86,12 @@ class LevelSystem {
         max: 10,
         buyable: true,
       },
+      [Types.Buff.Armor]: {
+        level: 0,
+        step: 0.06,
+        max: 10,
+        buyable: true,
+      },
     }
   }
 
@@ -115,6 +121,12 @@ class LevelSystem {
       this.player.health.percent *= 1.25;
       this.player.health.percent = Math.min(1, this.player.health.percent);
     }
+
+    // if armor buff, increase current armor
+    if (type === Types.Buff.Armor) {
+      this.player.armor.percent *= 1.25;
+      this.player.armor.percent = Math.min(1, this.player.armor.percent);
+    }
     }
   }
 
@@ -138,6 +150,9 @@ class LevelSystem {
           break;
         case Types.Buff.Damage:
           this.player.sword.damage.multiplier *= multiplier;
+          break;
+        case Types.Buff.Armor:
+          this.player.armor.max.multiplier *= multiplier;
           break;
       }
     }
