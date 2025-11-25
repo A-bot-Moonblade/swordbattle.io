@@ -13,6 +13,8 @@ export enum EntityTypes {
   LavaRock = 12,
   LavaPool = 13,
   Chest = 14,
+  Tree = 30,
+  EventToken = 33,
 
   Wolf = 15,
   Bunny = 16,
@@ -27,6 +29,8 @@ export enum EntityTypes {
   Boulder = 27,
   Fish = 28,
   AngryFish = 29,
+  WolfCursed = 31,
+  MooseCursed = 32,
 
   Fireball = 21,
   Snowball = 22,
@@ -45,6 +49,7 @@ export enum FlagTypes {
   PlayerDeath = 10,
   ChainDamaged = 11,
   PoisonDamaged = 12,
+  GetEventToken = 13,
 }
 
 export enum EvolutionTypes {

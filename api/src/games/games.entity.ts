@@ -11,6 +11,8 @@ export class Game {
 
   @Column() coins: number;
 
+  @Column() eventtokens: number;
+
   @Column() kills: number;
 
   @ManyToOne(() => Account, account => account.games)

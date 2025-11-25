@@ -6,6 +6,8 @@ export class SaveGameDTO {
   
   @IsInt() coins: number;
 
+  @IsInt() eventtokens: number;
+
   @IsInt() kills: number;
 
   @IsNumber() playtime: number;
@@ -13,6 +15,7 @@ export class SaveGameDTO {
 
 export enum GamesSortType {
   Coins = 'coins',
+  EventTokens = 'eventtokens',
   Kills = 'kills',
   Playtime = 'playtime',
 }

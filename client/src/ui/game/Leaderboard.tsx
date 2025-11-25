@@ -43,17 +43,17 @@ function Leaderboard({ game }: any) {
 }
 
 function getRankColor(rank: number) {
-  // #1 gold, #2 silver, #3 bronze, #4-10 green, #11-50 purple, #51-100 gray
-  if (rank === 1) return '#ffff00';
+  // #1 gold, #2 silver, #3 black, #4-5 cyan, #6-10 green, #11-25 red, #26-50 pink, #51-75 purple, #76-100 light gray,#101-200 dark gray
+  if (rank === 1) return '#ffd900ff';
   if (rank === 2) return '#ccccdc';
   if (rank === 3) return '#222222';
   if (rank >= 4 && rank <= 5) return '#00ffff';
   if (rank >= 6 && rank <= 10) return '#00ff00';
   if (rank >= 11 && rank <= 25) return '#ff0000';
-  if (rank >= 26 && rank <= 50) return '#ee00ff';
-  if (rank >= 51 && rank <= 75) return '#800080';
-  if (rank >= 76 && rank <= 100) return '#707070';
-  if (rank >= 101 && rank <= 200) return '#575454ff';
+  if (rank >= 26 && rank <= 50) return '#ff00d4ff';
+  if (rank >= 51 && rank <= 75) return '#550055ff';
+  if (rank >= 76 && rank <= 100) return '#7e7e7eff';
+  if (rank >= 101 && rank <= 200) return '#3a3a3aff';
   return 'white';
 }
 
@@ -67,6 +67,7 @@ function LeaderboardLine({ player }: any) {
     "cool guy 53": '#0099ff',
     "update testing account": '#00ff00',
     amethystbladeyt: '#7802ab',
+    "The Cursed Demon": '#700101ff' //temp for live event
   };
 
   let nameStyle: React.CSSProperties = {};

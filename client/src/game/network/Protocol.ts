@@ -1286,6 +1286,7 @@ export interface Entity {
   skin?: number;
   wideSwing?: boolean;
   coinShield?: number;
+  eventtokens?: number;
 }
 
 export function encodeEntity(message: Entity): Uint8Array {
@@ -1644,6 +1645,13 @@ function _encodeEntity(message: Entity, bb: ByteBuffer): void {
     writeVarint32(bb, 352);
     writeVarint64(bb, intToLong($coinShield));
   }
+
+  // optional int32 coins = 45;
+  let $eventtokens = message.eventtokens;
+  if ($eventtokens !== undefined) {
+    writeVarint32(bb, 136);
+    writeVarint64(bb, intToLong($eventtokens));
+  }
 }
 
 export function decodeEntity(binary: Uint8Array): Entity {
@@ -1999,6 +2007,12 @@ function _decodeEntity(bb: ByteBuffer): Entity {
       // optional int32 coinShield = 44;
       case 44: {
         message.coinShield = readVarint32(bb);
+        break;
+      }
+
+      // optional int32 eventtokens = 45;
+      case 45: {
+        message.eventtokens = readVarint32(bb);
         break;
       }
 

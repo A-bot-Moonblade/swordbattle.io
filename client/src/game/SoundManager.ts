@@ -23,6 +23,9 @@ class SoundManager {
       [FlagTypes.GetCoin]: new Sound(FlagTypes.GetCoin, [
         'GetCoin/GetCoin1.wav', 'GetCoin/GetCoin2.wav', 'GetCoin/GetCoin3.wav',
       ], 50),
+      [FlagTypes.GetEventToken]: new Sound(FlagTypes.GetEventToken, [
+        'GetCoin/GetCoin1.wav', 'GetCoin/GetCoin2.wav', 'GetCoin/GetCoin3.wav',
+      ], 50),
       [FlagTypes.ChestHit]: new Sound(FlagTypes.ChestHit, [
         'HitChest/HitChest1.wav', 'HitChest/HitChest2.wav', 'HitChest/HitChest3.wav',
       ]),

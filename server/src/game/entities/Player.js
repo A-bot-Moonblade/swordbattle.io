@@ -128,6 +128,7 @@ class Player extends Entity {
     state.coins = this.levels.coins;
     state.nextLevelCoins = this.levels.nextLevelCoins;
     state.previousLevelCoins = this.levels.previousLevelCoins;
+    state.eventtokens = this.levels.eventtokens;
     state.upgradePoints = this.levels.upgradePoints;
     state.skin = this.skin;
 
@@ -345,6 +346,8 @@ class Player extends Entity {
           case Types.Entity.Wolf: reason = 'A Wolf'; break;
           case Types.Entity.Cat: reason = 'A Cat'; break;
           case Types.Entity.Moose: reason = 'A Moose'; break;
+          case Types.Entity.WolfCursed: reason = 'A Cursed Wolf'; break;
+          case Types.Entity.MooseCursed: reason = 'A Cursed Moose'; break;
           case Types.Entity.AngryFish: reason = 'A Fish'; break;
           case Types.Entity.Yeti: reason = 'A Yeti'; break;
           case Types.Entity.Chimera: reason = 'A Chimera'; break;
@@ -413,6 +416,7 @@ class Player extends Entity {
       }
       const game = {
         coins: this.levels.coins,
+        eventtokens: this.levels.coins
         kills: this.kills,
         playtime: this.playtime,
       };

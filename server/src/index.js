@@ -295,6 +295,7 @@ function start() {
         try {
         const data = {
           coins: client.player.levels?.coins,
+          eventtokens: client.player.eventtokens,
           kills: client.player.kills,
           playtime: client.player.playtime,
         };

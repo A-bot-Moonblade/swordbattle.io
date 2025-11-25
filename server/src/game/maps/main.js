@@ -264,7 +264,7 @@ module.exports = {
         },
         {
           type: Types.Entity.EventToken,
-          amount: 500,
+          amount: 50,
           position: 'random',
           respawnable: true,
         },
@@ -273,7 +273,7 @@ module.exports = {
           amount: 9,
           position: 'random',
           respawnable: true,
-          size: [85, 105],
+          size: [180, 220],
         },
         /*
         {
@@ -283,7 +283,6 @@ module.exports = {
           respawnable: true,
           size: [70, 90],
         },
-        */
         {
           type: Types.Entity.Bunny,
           amount: 18,
@@ -291,6 +290,7 @@ module.exports = {
           respawnable: true,
           size: [40, 60],
         },
+        */
         {
           type: Types.Entity.Rock,
           amount: 10,
@@ -302,7 +302,7 @@ module.exports = {
           amount: 5,
           position: 'random',
           respawnable: true,
-          size: [190, 250],
+          size: [250, 300],
         },
         /*
         {

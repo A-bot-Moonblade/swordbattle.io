@@ -46,7 +46,7 @@ export default class Game extends Phaser.Scene {
     crazygamesSDK.loadingStart();
 
     this.load.image('fireTile', publicPath + '/assets/game/tiles/fire.jpg');
-    this.load.image('earthTile', publicPath + '/assets/game/tiles/grass.jpg');
+    this.load.image('earthTile', publicPath + '/assets/game/tiles/grass-cursed.jpg');
     this.load.image('iceTile', publicPath + '/assets/game/tiles/ice.png');
     this.load.image('river', publicPath + '/assets/game/tiles/river.png');
 
@@ -55,13 +55,15 @@ export default class Game extends Phaser.Scene {
     } else {
       this.load.image('coin', publicPath + '/assets/game/coin-new.png');
     }
+    this.load.image('eventtoken', publicPath + '/assets/game/eventtoken-cursed.png');
     this.load.image('kill', publicPath + '/assets/game/ui/kill.png');
     this.load.image('mastery', publicPath + '/assets/game/ui/mastery.png');
     this.load.image('house1', publicPath + '/assets/game/house1.png');
     this.load.image('house1roof', publicPath + '/assets/game/house1roof.png');
     this.load.image('mossyRock', publicPath + '/assets/game/Mossy_Rock.png');
-    this.load.image('pond', publicPath + '/assets/game/Pond_Earth.png');
+    this.load.image('pond', publicPath + '/assets/game/Pond_Earth-cursed.png');
     this.load.image('bush', publicPath + '/assets/game/grass.png');
+    this.load.image('tree', publicPath + '/assets/game/tree-cursed.png');
     this.load.image('iceMound', publicPath + '/assets/game/Ice_Mound.png');
     this.load.image('iceSpike', publicPath + '/assets/game/Ice_Spike.png');
     this.load.image('icePond', publicPath + '/assets/game/Ice_Pond.png');
@@ -74,6 +76,8 @@ export default class Game extends Phaser.Scene {
     this.load.image('catMobPassive', publicPath + '/assets/game/mobs/cat.png');
     this.load.image('bunny', publicPath + '/assets/game/mobs/bunny.png');
     this.load.image('moose', publicPath + '/assets/game/mobs/moose.png');
+    this.load.image('wolfcursed', publicPath + '/assets/game/mobs/wolf-cursed.png');
+    this.load.image('moosecursed', publicPath + '/assets/game/mobs/moose-cursed.png');
     this.load.image('fish', publicPath + '/assets/game/mobs/bluefish.png');
     this.load.image('angryFish', publicPath + '/assets/game/mobs/angryfish.png');
     this.load.image('chimera', publicPath + '/assets/game/mobs/chimera.png');

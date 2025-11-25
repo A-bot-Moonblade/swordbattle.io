@@ -105,6 +105,7 @@ function App() {
     "Tip: The Warrior is great for being aggressive while keeping good defensive stats, making it great for fighting!",
     "Tip: The Warrior's ability increases its speed, damage and size, making it great for chasing down enemies!",
     "Tip: The Lumberjack deals bonus damage to chests at the cost of less damage to mobs and players, making it good for farming!",
+    "Tip: The Fisherman can pull running enemies closer!",
     "Tip: The Fighter has faster attack speed, regen time, and ability cooldown, letting it be apart of more fights!",
     "Tip: The Fighter ability affects stats very slightly, but can be activated very often!",
     "Tip: The Stalker's ability makes it invisible and very fast, which is helpful for both ambushes and escapes!",
@@ -118,9 +119,12 @@ function App() {
     "Tip: The Plaguebearer's ability summons a poison field that can take down many enemies at once, and scare them away!",
     "Tip: Throwing your sword temporarily prevents melee attacks, making you vulnerable to enemies up close!",
     "Tip: Predicting enemy swordthrows can help you dodge them more often!",
+    "Tip: Use swordthrows to push enemies away from you if they're too close!",
+    "Tip: Keeping some distance between yourself and your enemy while fighting is a good idea, especially if they're bigger than you!",
     "Tip: Join the Swordbattle Discord Server for more detailed changelogs and patch notes!",
     "Tip: Join the Swordbattle Discord Server to chat with other players and get help!",
     "Tip: Join the Swordbattle Discord Server to vote on polls to decide the future of Swordbattle.io!",
+    "Tip: Join the Swordbattle Discord Server to share your skin designs that might make their way into the game!",
     "Tip: You can report bugs and suggest features on the Swordbattle.io Discord Server!",
     "Tip: You can report players through the Swordbattle.io Discord Server.",
     "Tip: Join the Swordbattle Discord Server for sneak peaks and exclusive news!",
@@ -144,6 +148,9 @@ function App() {
     "Tip: You earn more and more mastery when getting more coins in a single life!",
     "Tip: To maximize the mastery you earn, try to get as many coins as possible without dying!",
     "Tip: Getting a bunch of games with 500000+ coins will help you earn mastery much faster!",
+    "Tip: Event tokens are transferred between events, so if you don't like any skins from this event you can save up for the next one!",
+    "Tip: Some event skins will never be on sale again, so buy them if you like them!",
+    "Tip: Events may add new temporary mechanics or designs. If you like one you can let people know on the Swordbattle Discord Server!",
     
   ];
   const [randomMessage] = useState(() => messages[Math.floor(Math.random() * messages.length)]);

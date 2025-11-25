@@ -10,6 +10,8 @@ export class DailyStats {
   @Column({ default: 0 }) xp: number;
 
   @Column({ default: 0 }) coins: number;
+
+  @Column({ default: 0 }) eventtokens: number;
   
   @Column({ default: 0 }) kills: number;
 

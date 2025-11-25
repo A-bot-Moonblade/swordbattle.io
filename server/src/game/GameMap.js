@@ -10,6 +10,7 @@ const House1 = require('./entities/mapObjects/House1');
 const MossyRock = require('./entities/mapObjects/MossyRock');
 const Pond = require('./entities/mapObjects/Pond');
 const Bush = require('./entities/mapObjects/Bush');
+const Tree = require('./entities/mapObjects/Tree');
 const IceMound = require('./entities/mapObjects/IceMound');
 const IcePond = require('./entities/mapObjects/IcePond');
 const IceSpike = require('./entities/mapObjects/IceSpike');
@@ -18,11 +19,14 @@ const LavaRock = require('./entities/mapObjects/LavaRock');
 const LavaPool = require('./entities/mapObjects/LavaPool');
 const Chest = require('./entities/Chest');
 const Coin = require('./entities/Coin');
+const EventToken = require('./entities/EventToken');
 const PlayerAI = require('./entities/PlayerBot');
 const WolfMob = require('./entities/mobs/Wolf');
 const CatMob = require('./entities/mobs/Cat');
 const BunnyMob = require('./entities/mobs/Bunny');
 const MooseMob = require('./entities/mobs/Moose');
+const WolfCursedMob = require('./entities/mobs/WolfCursed');
+const MooseCursedMob = require('./entities/mobs/MooseCursed');
 const FishMob = require('./entities/mobs/Fish');
 const AngryFishMob = require('./entities/mobs/AngryFish');
 const ChimeraMob = require('./entities/mobs/Chimera');
@@ -53,6 +57,7 @@ class GameMap {
     this.shape = null;
     this.entityTimers = new Set();
     this.coinsCount = map.coinsCount !== undefined ? map.coinsCount : 100;
+    this.eventtokensCount = map.eventtokensCount !== undefined ? map.eventtokensCount : 100;
     this.chestsCount = map.chestCount !== undefined ? map.chestsCount : 50;
     this.aiPlayersCount = map.aiPlayersCount !== undefined ? map.aiPlayersCount : 10; // contrary to the name, we want to make sure theres no more than this many AI players, goal is to maintain the game at this many players when low traffic
   }
@@ -74,6 +79,13 @@ class GameMap {
     for (let i = 0; i < this.coinsCount; i++) {
       this.addEntity({
         type: Types.Entity.Coin,
+        respawnable: true,
+        spawnZone: this.shape,
+      });
+    }
+    for (let i = 0; i < this.eventtokensCount; i++) {
+      this.addEntity({
+        type: Types.Entity.EventToken,
         respawnable: true,
         spawnZone: this.shape,
       });
@@ -144,6 +156,37 @@ spawnCoinsInShape(shape, totalCoinValue, droppedBy) {
   }
 }
 
+spawnEventTokensInShape(shape, totalEventTokenValue, droppedBy) {
+  const maxEventTokenCount = 200;
+  let remainingEventTokensValue = totalEventTokenValue;
+  const eventtokens = Math.min(Math.round(totalEventTokenValue / 5), maxEventTokenCount);
+  const eventtokenValue = totalEventTokensValue / eventtoken;
+
+  const entityBuffer = 500;
+  const availableSlots = this.game.maxEntities - this.game.entities.size - entityBuffer;
+  const eventtokenToSpawn = Math.min(eventtokens, Math.max(0, availableSlots));
+
+  if (eventtokensToSpawn < eventtokens) {
+    console.warn(`[LIMIT] Event Token spawn limited from ${eventtokens} to ${eventtokensToSpawn} due to entity limit (${this.game.entities.size}/${this.game.maxEntities})`);
+  }
+
+  for (let i = 0; i < eventttokensToSpawn; i++) {
+    // Get a random point within the shape for the event token's position
+    const randomPoint = shape.getRandomPoint();
+    const eventtoken = this.game.map.addEntity({
+      type: Types.Entity.EventToken,
+      position: [randomPoint.x, randomPoint.y], // Spawn directly at the random point
+      value: eventtokenValue,
+      droppedBy,
+    });
+    //Remove the velocity application.
+    //eventtoken.velocity.add(new SAT.Vector(
+    //  randomPoint.x - center.x,
+    //  randomPoint.y - center.y,
+    //).scale(0.5));
+  }
+}
+
 
   addAI(objectData) {
     let ObjectClass;
@@ -167,6 +210,7 @@ spawnCoinsInShape(shape, totalCoinValue, droppedBy) {
       case Types.Entity.MossyRock: ObjectClass = MossyRock; break;
       case Types.Entity.Pond: ObjectClass = Pond; break;
       case Types.Entity.Bush: ObjectClass = Bush; break;
+      case Types.Entity.Tree: ObjectClass = Tree; break;
       case Types.Entity.House1: ObjectClass = House1; break;
       case Types.Entity.IceMound: ObjectClass = IceMound; break;
       case Types.Entity.IcePond: ObjectClass = IcePond; break;
@@ -176,10 +220,13 @@ spawnCoinsInShape(shape, totalCoinValue, droppedBy) {
       case Types.Entity.LavaPool: ObjectClass = LavaPool; break;
       case Types.Entity.Chest: ObjectClass = Chest; break;
       case Types.Entity.Coin: ObjectClass = Coin; break;
+      case Types.Entity.EventToken: ObjectClass = EventToken; break;
       case Types.Entity.Wolf: ObjectClass = WolfMob; break;
       case Types.Entity.Cat: ObjectClass = CatMob; break;
       case Types.Entity.Bunny: ObjectClass = BunnyMob; break;
       case Types.Entity.Moose: ObjectClass = MooseMob; break;
+      case Types.Entity.WolfCursed: ObjectClass = WolfCursedMob; break;
+      case Types.Entity.MooseCursed: ObjectClass = MooseCursedMob; break;
       case Types.Entity.Fish: ObjectClass = FishMob; break;
       case Types.Entity.AngryFish: ObjectClass = AngryFishMob; break;
       case Types.Entity.Chimera: ObjectClass = ChimeraMob; break;

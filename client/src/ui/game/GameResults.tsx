@@ -150,6 +150,14 @@ function GameResults({ onHome, results, game, isLoggedIn, adElement }: any) {
         </div>
 
         <div className="info">
+          <div className="title">Event Tokens:</div>
+          <CountUp
+            duration={3}
+            end={results.eventtokens}
+          />
+        </div>
+
+        <div className="info">
           <div className="title">Stabs:</div>
           <CountUp
             duration={3}

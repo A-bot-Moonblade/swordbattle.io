@@ -13,6 +13,8 @@ const Entity = {
   LavaRock: 12,
   LavaPool: 13,
   Chest: 14,
+  Tree: 30,
+  EventToken: 33,
 
   Wolf: 15,
   Bunny: 16,
@@ -27,17 +29,19 @@ const Entity = {
   Boulder: 27,
   Fish: 28,
   AngryFish: 29,
+  WolfCursed: 31,
+  MooseCursed: 32,
 
   Fireball: 21,
   Snowball: 22,
 };
 
 const Mobs = [
-  Entity.Wolf, Entity.Bunny, Entity.Moose, Entity.Yeti, Entity.Santa, Entity.Chimera, Entity.Roku, Entity.Ancient, Entity.Cat, Entity.Fish, Entity.AngryFish
+  Entity.Wolf, Entity.Bunny, Entity.Moose, Entity.Yeti, Entity.Santa, Entity.Chimera, Entity.Roku, Entity.Ancient, Entity.Cat, Entity.Fish, Entity.AngryFish, Entity.WolfCursed, Entity.MooseCursed
 ];
 const Groups = {
   Obstacles: [
-    Entity.Player, Entity.Sword, Entity.Coin,
+    Entity.Player, Entity.Sword, Entity.Coin, Entity.EventTokens
     Entity.IceSpike, Entity.Rock, Entity.MossyRock, Entity.LavaRock,
     Entity.Fireball, Entity.Boulder, Entity.SwordProj, Entity.Snowball, Entity.Chest,
     ...Mobs,
@@ -94,6 +98,7 @@ module.exports = {
     PlayerDeath: 10,
     ChainDamaged: 11,
     PoisonDamaged: 12,
+    GetEventToken: 13,
   },
   Effect: {
     Custom: 1,

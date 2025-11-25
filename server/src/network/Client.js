@@ -213,6 +213,7 @@ class Client {
   shouldSaveGame(game) {
     return game.playtime >= config.saveGame.playtime * 60
       || game.kills >= config.saveGame.kills
+      || game.eventtokens >= config.saveGame.eventtokens
       || game.coins >= config.saveGame.coins;
   }
 

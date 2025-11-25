@@ -11,6 +11,8 @@ export class SaveGameDTO {
 
   @IsInt() coins: number;
 
+  @IsInt() eventtokens: number;
+
   @IsNumber() playtime: number;
 
   @IsNumber() gems: number;
@@ -27,6 +29,7 @@ export enum StatsSortType {
   XP = 'xp',
   Mastery = 'mastery',
   TotalCoins = 'coins',
+  TotalEventTokens = 'eventtokens',
   TotalKills = 'kills',
   TotalPlaytime = 'playtime',
 }

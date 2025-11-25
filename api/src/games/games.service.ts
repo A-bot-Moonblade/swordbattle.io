@@ -53,6 +53,7 @@ export class GamesService {
         'game.created_at as date',
         'game.playtime as playtime',
         'game.coins as coins',
+        'game.eventokens as eventtokens',
         'game.kills as kills',
       ])
       .where(where)

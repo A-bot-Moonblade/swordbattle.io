@@ -7,6 +7,7 @@ import BuffsSelect from './BuffsSelect';
 import Chat from './Chat';
 import MobileControls from './MobileControls';
 import CoinCounter from './CoinCounter';
+import EventTokenCounter from './EventTokenCounter';
 import { crazygamesSDK } from '../../crazygames/sdk';
 import { Settings } from '../Settings';
 
@@ -21,6 +22,7 @@ class HUD {
   chat: Chat;
   mobileControls: MobileControls;
   coinCounter: CoinCounter;
+  eventtokenCounter: EventTokenCounter;
   components: any[];
   scale = 1;
   hidden = false;
@@ -35,7 +37,8 @@ class HUD {
     this.chat = new Chat(this);
     this.mobileControls = new MobileControls(this);
     this.coinCounter = new CoinCounter(this);
-    this.components = [this.minimap, this.stats, this.progressBar, this.evolutionSelect, this.buffsSelect, this.chat, this.mobileControls, this.coinCounter];
+    this.eventtokenCounter = new EventTokenCounter(this);
+    this.components = [this.minimap, this.stats, this.progressBar, this.evolutionSelect, this.buffsSelect, this.chat, this.mobileControls, this.coinCounter, this.eventtokenCounter];
   }
 
   initialize() {

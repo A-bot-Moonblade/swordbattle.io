@@ -17,6 +17,7 @@ interface Stats {
   kills: number;
   games: number;
   coins: number
+  eventtokens: number
   playtime: number;
 }
 interface AccountData {
@@ -40,6 +41,7 @@ interface ProfileData {
 
 const sorts = [
   { key: 'coins', label: 'Coins' },
+  { key: 'eventtokens', label: 'EventTokens' },
   { key: 'kills', label: 'Kills' },
   { key: 'playtime', label: 'Playtime' },
 ];
@@ -320,8 +322,8 @@ export default function Profile() {
                     <tr key={idx}>
                       <td><b>{idx + 1}</b></td>
                       <td>{numberWithCommas(game.coins)}</td>
+                      <td>{numberWithCommas(game.eventtokens)}</td>
                       <td>{numberWithCommas(game.kills)}</td>
-                      <td>{secondsToTime(game.playtime)}</td>
                       <td>
                         {(() => {
                           const agoText = sinceFrom(game.date) + ' ago';

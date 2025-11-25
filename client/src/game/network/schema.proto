@@ -130,4 +130,5 @@ message Entity {
 
   bool wideSwing = 43;
   int32 coinShield = 44;
+  int32 eventtokens = 45;
 }

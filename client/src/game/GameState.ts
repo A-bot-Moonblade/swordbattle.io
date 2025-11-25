@@ -11,6 +11,7 @@ import { getServer } from '../ServerList';
 import { config } from '../config';
 import exportCaptcha from './components/captchaEncoder';
 import { findCoinCollector } from '../helpers';
+import { findEventTokenCollector } from '../helpers';
 import { crazygamesSDK } from '../crazygames/sdk';
 
 class GameState {
@@ -463,6 +464,30 @@ class GameState {
       }
       entity.remove();
     }
+
+    if (entity.type === EntityTypes.EventToken) {
+      entity.removed = true;
+      // entity.hunter = this.entities[data.hunterId];
+      entity.hunter = findEventTokenCollector(entity, Object.values(this.entities).filter((e: any) => e.type === EntityTypes.Player));
+      this.removedEntities.add(entity);
+    } else {
+      if(entity.type === EntityTypes.Player) {
+        this.recentDeadPlayers[id] = { name: entity.name, time: Date.now() };
+        if(Object.keys(this.recentDeadPlayers).length > 10) {
+          // delete the oldest
+          let oldestTime = Infinity;
+          let oldestId = 0;
+          for(const id in this.recentDeadPlayers) {
+            if(this.recentDeadPlayers[id].time < oldestTime) {
+              oldestTime = this.recentDeadPlayers[id].time;
+              oldestId = Number(id);
+            }
+          }
+          delete this.recentDeadPlayers[oldestId];
+        }
+      }
+      entity.remove();
+    }
   }
 
   addGlobalEntity(id: number, entityData: any) {
@@ -486,6 +511,7 @@ class GameState {
     const results = {
       name: '',
       coins: 0,
+      eventtokens: 0,
       kills: 0,
       survivalTime: 0,
       disconnectReason: this.disconnectReason,
@@ -494,6 +520,7 @@ class GameState {
     if (player) {
       results.name = player.name;
       results.coins = player.coins;
+      results.eventtokens = player.eventtokens;
       results.kills = player.kills;
       results.survivalTime = player.survivalTime;
     }

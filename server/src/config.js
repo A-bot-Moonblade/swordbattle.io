@@ -62,6 +62,7 @@ module.exports = {
   saveGame: {
     playtime: 30, // in minutes
     coins: 20000,
+    eventtokens: 500,
     kills: 50,
   },
 

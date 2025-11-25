@@ -167,6 +167,7 @@ async function migrateUser(username, account, stats, games) {
     username: account.username,
     password: account.password,
     email: account.email ?? '',
+    eventtokens: currentEventTokens(account.eventtokens),
     gems: calculateGemsXP(stats, account.coins)?.gems,
     xp: calculateGemsXP(stats, account.coins)?.xp,
     is_v1: true,
@@ -210,6 +211,7 @@ function mapStatsDaily(oldStats, account_id) {
     date: oldStats.game_date,
     xp: calcXp(convertIfNumber(oldStats.coins), convertIfNumber(oldStats.stabs)),
     coins: convertIfNumber(oldStats.coins),
+    eventtokens: convertIfNumber(oldStats.eventtokens),
     kills: convertIfNumber(oldStats.stabs),
     games: convertIfNumber(oldStats.game_count),
     playtime: Math.round(convertIfNumber(oldStats.game_time)/1000),
@@ -222,7 +224,7 @@ async function insertAccount(account) {
 }
 
 async function insertTotalStats(stats, account_id) {
-  let newStats = await sql2`INSERT INTO total_stats (id, xp, coins, kills, games, playtime) VALUES (${account_id}, ${stats.xp}, ${stats.coins}, ${stats.kills}, ${stats.games}, ${stats.playtime}) RETURNING *`;
+  let newStats = await sql2`INSERT INTO total_stats (id, xp, coins, eventtokens, kills, games, playtime) VALUES (${account_id}, ${stats.xp}, ${stats.coins}, ${stats.eventtokens}, ${stats.kills}, ${stats.games}, ${stats.playtime}) RETURNING *`;
   return newStats;
 }
 
@@ -240,7 +242,7 @@ async function createTransaction(account_id, amount, desc) {
 }
 
 async function insertDailyStats(stats, acc_id) {
-  let newStats = await sql2`INSERT INTO daily_stats (account_id, date, xp, coins, kills, games, playtime) VALUES (${acc_id}, ${stats.date}, ${stats.xp}, ${stats.coins}, ${stats.kills}, ${stats.games}, ${stats.playtime}) RETURNING *`;
+  let newStats = await sql2`INSERT INTO daily_stats (account_id, date, xp, coins, eventtokens, kills, games, playtime) VALUES (${acc_id}, ${stats.date}, ${stats.xp}, ${stats.coins}, ${stats.eventtokens}, ${stats.kills}, ${stats.games}, ${stats.playtime}) RETURNING *`;
   return newStats;
 }
 

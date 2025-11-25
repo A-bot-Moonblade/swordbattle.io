@@ -1,4 +1,5 @@
 import Coin from "./game/entities/Coin";
+import EventToken from "./game/entities/EventToken";
 import Player from "./game/entities/Player";
 import { crazygamesSDK, InviteParams } from "./crazygames/sdk";
 
@@ -177,6 +178,25 @@ export function findCoinCollector(coin: Coin, players: Player[]) {
       const playerRadius = player.shape.radius * 2 * errorThreshold;
       if (playerRadius > coinRadius) {
         const distance = Math.sqrt(Math.pow(player.shape.x - coinX, 2) + Math.pow(player.shape.y - coinY, 2));
+        if (distance < playerRadius) {
+          entity = player;
+        }
+      }
+    });
+    return entity;
+}
+
+export function findEventTokenCollector(eventtoken: EventToken, players: Player[]) {
+    const errorThreshold = 1.1;
+    const eventtokenRadius = eventtoken.shape.radius * eventtoken.container.scale * errorThreshold;
+    const eventtokenX = eventtoken.shape.x;
+    const eventtokenY = eventtoken.shape.y;
+
+    let entity = null;
+    players.forEach((player: Player) => {
+      const playerRadius = player.shape.radius * 2 * errorThreshold;
+      if (playerRadius > eventtokenRadius) {
+        const distance = Math.sqrt(Math.pow(player.shape.x - eventtokenX, 2) + Math.pow(player.shape.y - eventtokenY, 2));
         if (distance < playerRadius) {
           entity = player;
         }

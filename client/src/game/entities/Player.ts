@@ -48,7 +48,7 @@ class Player extends BaseEntity {
   static stateFields = [
     ...BaseEntity.stateFields, 'name', 'angle',
     'kills', 'flags', 'biome', 'level', 'upgradePoints',
-    'coins', 'nextLevelCoins', 'previousLevelCoins',
+    'coins', 'nextLevelCoins', 'previousLevelCoins', 'eventtokens'
     'buffs', 'evolution', 'possibleEvolutions',
     'isAbilityAvailable', 'abilityActive', 'abilityDuration', 'abilityCooldown',
     'swordSwingAngle', 'swordSwingProgress', 'swordSwingDuration', 'swordFlying', 'swordFlyingCooldown',
