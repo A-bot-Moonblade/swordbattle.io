@@ -5,6 +5,7 @@ const buffsData: Record<any, [string, number]> = {
   [BuffTypes.Health]: ['Health', 0xed68ec],
   [BuffTypes.Regeneration]: ['Regeneration', 0xefb28c],
   [BuffTypes.Damage]: ['Damage', 0xf16868],
+  [BuffTypes.Armor]: ['Armor', 0x00FFFF], // Cyan blue
 };
 
 class BuffsSelect extends HudComponent {

@@ -96,6 +96,7 @@ module.exports = {
     Health: 3,
     Regeneration: 4,
     Damage: 5,
+    Armor: 6,
   },
   Flags: {
     EnemyHit: 1,
@@ -142,6 +143,8 @@ module.exports = {
     SwordSwing: 5,
     SwordThrow: 6,
     Ability: 7,
+    Dash: 8,
+    Block: 9,
   },
   DisconnectReason: {
     Server: 1,
