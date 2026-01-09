@@ -2,6 +2,7 @@ import { BaseEntity } from './BaseEntity';
 import { Shape } from '../physics/Shape';
 import { Evolutions } from '../Evolutions';
 import { Health } from '../components/Health';
+import { Armor } from '../components/Armor';
 import { BiomeTypes, EntityTypes, FlagTypes, InputTypes, EvolutionTypes } from '../Types';
 import { random } from '../../helpers';
 import { Settings } from '../Settings';
@@ -53,6 +54,7 @@ class Player extends BaseEntity {
     'isAbilityAvailable', 'abilityActive', 'abilityDuration', 'abilityCooldown',
     'swordSwingAngle', 'swordSwingProgress', 'swordSwingDuration', 'swordFlying', 'swordFlyingCooldown',
     'viewportZoom', 'chatMessage', 'skin', 'skinName', 'account', 'wideSwing', 'coinShield',
+    'armorPercent', 'dashActive', 'dashCooldown', 'dashDuration', 'blockActive', 'blockStartTime',
   ];
   static removeTransition = 500;
 
@@ -112,6 +114,13 @@ class Player extends BaseEntity {
       hideWhenFull: false,
       line: 0,
       offsetY: -this.body.height / 2 - 40,
+    });
+
+    // Armor bar positioned below health bar
+    this.armorBar = new Armor(this, {
+      hideWhenFull: false,
+      line: 0,
+      offsetY: -this.body.height / 2 - 5, // Below health bar
     });
     const displayName = this.clan ? `[${this.clan}] ${this.name}`.replace(/\s+/, ' ') : this.name;
     const name = this.game.add.text(0, -this.body.height / 2 - 50, displayName);

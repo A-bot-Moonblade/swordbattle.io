@@ -88,6 +88,7 @@ message Entity {
   float angle = 7;
   int32 size = 8;
   bool isAngry = 9;
+  float armorPercent = 52;
 
   // Player
   string name = 10;
@@ -131,4 +132,11 @@ message Entity {
 
   bool wideSwing = 43;
   int32 coinShield = 44;
+
+  // Combat Features
+  bool dashActive = 53;
+  float dashCooldown = 54;
+  float dashDuration = 55;
+  bool blockActive = 56;
+  float blockStartTime = 57;
 }
