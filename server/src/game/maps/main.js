@@ -4,110 +4,180 @@ module.exports = {
   coinsCount: 0,
   aiPlayersCount: 20,
   biomes: [
+    // Central Island (replaces old safezone)
     {
-      type: Types.Biome.Safezone,
-      pos: [0, 0],
-      radius: 2000,
-      objects: [
-      ],
-    },
-    {
-      type: Types.Biome.River,
+      type: Types.Biome.Island,
       pos: [0, 0],
       radius: 4000,
       objects: [
         {
+          type: Types.Entity.Bush,
+          amount: 80,
+          position: 'random',
+          size: [100, 400],
+        },
+        {
+          type: Types.Entity.Rock,
+          amount: 15,
+          position: 'random',
+          size: [200, 400],
+        },
+        {
+          type: Types.Entity.Chest,
+          amount: 25,
+          position: 'random',
+          respawnable: true,
+        },
+        {
+          type: Types.Entity.Coin,
+          amount: 300,
+          position: 'random',
+          respawnable: true,
+        }
+      ],
+    },
+
+    // 4 Spawnzones (one in each corner)
+    // Top-left corner spawnzone
+    {
+      type: Types.Biome.Safezone,
+      pos: [-22000, -22000],
+      radius: 2000,
+      objects: [],
+    },
+    // Top-right corner spawnzone
+    {
+      type: Types.Biome.Safezone,
+      pos: [22000, -22000],
+      radius: 2000,
+      objects: [],
+    },
+    // Bottom-left corner spawnzone
+    {
+      type: Types.Biome.Safezone,
+      pos: [-22000, 22000],
+      radius: 2000,
+      objects: [],
+    },
+    // Bottom-right corner spawnzone
+    {
+      type: Types.Biome.Safezone,
+      pos: [22000, 22000],
+      radius: 2000,
+      objects: [],
+    },
+
+    // 4 Rivers from corners to center
+    // Northwest corner to center
+    {
+      type: Types.Biome.River,
+      pos: [-30000, -30000],
+      points: [
+        [0, 0],
+        [3000, 0],
+        [28000, 26000],
+        [30000, 28000],
+        [30000, 30000],
+        [0, 30000],
+      ],
+      objects: [
+        {
           type: Types.Entity.Fish,
-          amount: 5,
+          amount: 8,
           position: 'random',
           respawnable: true,
           size: [53, 73],
         },
         {
           type: Types.Entity.AngryFish,
-          amount: 5,
+          amount: 8,
           position: 'random',
           respawnable: true,
           size: [53, 73],
         }
       ]
     },
-
+    // Northeast corner to center
     {
       type: Types.Biome.River,
-      pos: [-15000, -15000],
+      pos: [30000, -30000],
       points: [
-        [2000, 0],
-        [13500, 11500],
-        [11500, 13500],
-        [0, 2000],
         [0, 0],
+        [0, 3000],
+        [-26000, 28000],
+        [-28000, 30000],
+        [-30000, 30000],
+        [-30000, 0],
       ],
       objects: [
         {
           type: Types.Entity.Fish,
-          amount: 5,
+          amount: 8,
           position: 'random',
           respawnable: true,
           size: [53, 73],
         },
         {
           type: Types.Entity.AngryFish,
-          amount: 5,
+          amount: 8,
           position: 'random',
           respawnable: true,
           size: [53, 73],
         }
       ],
     },
-
+    // Southwest corner to center
     {
       type: Types.Biome.River,
-      pos: [15000, -15000],
+      pos: [-30000, 30000],
       points: [
-        [0, 2000],
-        [-11500, 13500],
-        [-13500, 11500],
-        [-2000, 0],
         [0, 0],
+        [3000, 0],
+        [28000, -26000],
+        [30000, -28000],
+        [30000, -30000],
+        [0, -30000],
       ],
       objects: [
         {
           type: Types.Entity.Fish,
-          amount: 5,
+          amount: 8,
           position: 'random',
           respawnable: true,
           size: [53, 73],
         },
         {
           type: Types.Entity.AngryFish,
-          amount: 5,
+          amount: 8,
           position: 'random',
           respawnable: true,
           size: [53, 73],
         }
       ],
     },
+    // Southeast corner to center
     {
       type: Types.Biome.River,
-      pos: [0, 3500],
+      pos: [30000, 30000],
       points: [
-        [-1500, 0],
-        [1500, 0],
-        [1500, 11500],
-        [-1500, 11500],
+        [0, 0],
+        [0, -3000],
+        [-26000, -28000],
+        [-28000, -30000],
+        [-30000, -30000],
+        [-30000, 0],
       ],
       objects: [
         {
           type: Types.Entity.Fish,
-          amount: 5,
+          amount: 8,
           position: 'random',
           respawnable: true,
           size: [53, 73],
         },
         {
           type: Types.Entity.AngryFish,
-          amount: 5,
+          amount: 8,
           position: 'random',
           respawnable: true,
           size: [53, 73],
@@ -115,69 +185,60 @@ module.exports = {
       ],
     },
 
+    // Top Triangle - Ice Biome
     {
       type: Types.Biome.Ice,
-      pos: [-13000, -15000],
+      pos: [-30000, -30000],
       points: [
-        [26000, 0],
-        [14500, 11500],
-        [11500, 11500],
         [0, 0],
+        [60000, 0],
+        [30000, 30000],
       ],
       objects: [
         {
           type: Types.Entity.IceMound,
-          amount: 35,
+          amount: 70,
           position: 'random',
           size: [300, 700],
         },
         {
           type: Types.Entity.IceSpike,
-          amount: 20,
+          amount: 40,
           position: 'random',
           size: [200, 600],
         },
         {
           type: Types.Entity.IcePond,
-          amount: 11,
+          amount: 22,
           position: 'random',
           size: [600, 900],
         },
         {
           type: Types.Entity.IcePond,
-          amount: 1,
-          position: [0, -10000],
+          amount: 2,
+          position: 'random',
           size: 3000,
         },
-        /*
-        {
-          type: Types.Entity.House1,
-          amount: 1,
-          width: 2500,
-          height: 1400,
-          position: [-1000, -13000],
-        },
-        */
         {
           type: Types.Entity.Yeti,
-          amount: 6,
+          amount: 12,
           position: 'random',
           respawnable: true,
           size: [80, 110],
         },
         {
           type: Types.Entity.Wolf,
-          amount: 6,
+          amount: 12,
           position: 'random',
           respawnable: true,
           size: [85, 105],
         },
         {
           type: Types.Entity.Yeti,
-          amount: 1,
+          amount: 2,
           position: 'random',
           respawnable: true,
-          respawnTime: [60 * 7, 60 * 17], // 10-30 minutes
+          respawnTime: [60 * 7, 60 * 17], // 7-17 minutes
           size: [300, 400],
           health: 750,
           isBoss: true,
@@ -186,100 +247,15 @@ module.exports = {
         },
         {
           type: Types.Entity.Chest,
-          amount: 20,
+          amount: 40,
           position: 'random',
           respawnable: true,
         },
         {
           type: Types.Entity.Coin,
-          amount: 500,
+          amount: 1000,
           position: 'random',
           respawnable: true,
-        },
-        {
-          type: Types.Entity.Rock,
-          amount: 5,
-          position: 'random',
-          size: [200, 400],
-        },
-      ],
-    },
-
-    {
-      type: Types.Biome.Earth,
-      pos: [-15000, -13000],
-      points: [
-        [11500, 11500],
-        [13500, 16500],
-        [13500, 28000],
-        [0, 28000],
-        [0, 0],
-      ],
-      objects: [
-        {
-          type: Types.Entity.MossyRock,
-          amount: 10,
-          position: 'random',
-          size: [500, 700],
-        },
-        {
-          type: Types.Entity.Bush,
-          amount: 160,
-          position: 'random',
-          size: [100, 400],
-        },
-        {
-          type: Types.Entity.Pond,
-          amount: 1,
-          position: [-10000, 5000],
-          size: 4500,
-        },
-        /*
-        {
-          type: Types.Entity.House1,
-          amount: 1,
-          width: 2000,
-          height: 1500,
-          position: [-10000, 2000],
-        },
-        {
-          type: Types.Entity.House1,
-          amount: 1,
-          position: [-12000, -2000],
-        },
-        */
-        {
-          type: Types.Entity.Pond,
-          amount: 20,
-          position: 'random',
-          size: [400, 900],
-        },
-        {
-          type: Types.Entity.Coin,
-          amount: 500,
-          position: 'random',
-          respawnable: true,
-        },
-        {
-          type: Types.Entity.Wolf,
-          amount: 9,
-          position: 'random',
-          respawnable: true,
-          size: [85, 105],
-        },
-        {
-          type: Types.Entity.Cat,
-          amount: 11,
-          position: 'random',
-          respawnable: true,
-          size: [70, 90],
-        },
-        {
-          type: Types.Entity.Bunny,
-          amount: 18,
-          position: 'random',
-          respawnable: true,
-          size: [40, 60],
         },
         {
           type: Types.Entity.Rock,
@@ -287,78 +263,50 @@ module.exports = {
           position: 'random',
           size: [200, 400],
         },
-        {
-          type: Types.Entity.Moose,
-          amount: 5,
-          position: 'random',
-          respawnable: true,
-          size: [190, 250],
-        },
-        {
-          type: Types.Entity.Chest,
-          amount: 18,
-          position: 'random',
-          respawnable: true,
-        },
-        {
-          type: Types.Entity.Ancient,
-          amount: 3,
-          position: 'random',
-          respawnable: true,
-          respawnTime: [60 * 5, 60 * 15],
-          size: [275, 375],
-          health: 800,
-          isBoss: true,
-          damage: 20,
-          rotationSpeed: 10,
-          swordSize: 100,
-          boulderSize: 200,
-        },
       ],
     },
 
+    // Right Triangle - Fire Biome
     {
       type: Types.Biome.Fire,
-      pos: [15000, -13000],
+      pos: [30000, -30000],
       points: [
         [0, 0],
-        [0, 28000],
-        [-13500, 28000],
-        [-13500, 16500],
-        [-11500, 11500],
+        [0, 60000],
+        [-30000, 30000],
       ],
       objects: [
         {
           type: Types.Entity.LavaRock,
-          amount: 7,
+          amount: 14,
           position: 'random',
           size: [300, 600],
         },
         {
           type: Types.Entity.LavaPool,
-          amount: 30,
+          amount: 60,
           position: 'random',
           size: [200, 700],
         },
         {
           type: Types.Entity.LavaPool,
-          amount: 1,
-          position: [9000, 4000],
+          amount: 2,
+          position: 'random',
           size: 5000,
         },
         {
           type: Types.Entity.Chimera,
-          amount: 7,
+          amount: 14,
           position: 'random',
           respawnable: true,
           size: [70, 120],
         },
         {
           type: Types.Entity.Roku,
-          amount: 1,
+          amount: 2,
           position: 'random',
           respawnable: true,
-          respawnTime: [60 * 10, 60 * 15],
+          respawnTime: [60 * 10, 60 * 15], // 10-15 minutes
           size: [500, 600],
           health: 1000,
           isBoss: true,
@@ -368,22 +316,200 @@ module.exports = {
         },
         {
           type: Types.Entity.Rock,
-          amount: 5,
+          amount: 10,
           position: 'random',
           size: [200, 400],
         },
         {
           type: Types.Entity.Chest,
-          amount: 20,
+          amount: 40,
           position: 'random',
           respawnable: true,
         },
         {
           type: Types.Entity.Coin,
-          amount: 500,
+          amount: 1000,
           position: 'random',
           respawnable: true,
         }
+      ],
+    },
+
+    // Bottom Triangle - Desert Biome (using ice entities as placeholder)
+    {
+      type: Types.Biome.Desert,
+      pos: [-30000, 30000],
+      points: [
+        [0, 0],
+        [60000, 0],
+        [30000, -30000],
+      ],
+      objects: [
+        {
+          type: Types.Entity.IceMound,
+          amount: 70,
+          position: 'random',
+          size: [300, 700],
+        },
+        {
+          type: Types.Entity.IceSpike,
+          amount: 40,
+          position: 'random',
+          size: [200, 600],
+        },
+        {
+          type: Types.Entity.IcePond,
+          amount: 22,
+          position: 'random',
+          size: [600, 900],
+        },
+        {
+          type: Types.Entity.IcePond,
+          amount: 2,
+          position: 'random',
+          size: 3000,
+        },
+        {
+          type: Types.Entity.Yeti,
+          amount: 12,
+          position: 'random',
+          respawnable: true,
+          size: [80, 110],
+        },
+        {
+          type: Types.Entity.Wolf,
+          amount: 12,
+          position: 'random',
+          respawnable: true,
+          size: [85, 105],
+        },
+        {
+          type: Types.Entity.Yeti,
+          amount: 2,
+          position: 'random',
+          respawnable: true,
+          respawnTime: [60 * 7, 60 * 17], // 7-17 minutes
+          size: [300, 400],
+          health: 750,
+          isBoss: true,
+          damage: 4,
+          speed: 20,
+        },
+        {
+          type: Types.Entity.Chest,
+          amount: 40,
+          position: 'random',
+          respawnable: true,
+        },
+        {
+          type: Types.Entity.Coin,
+          amount: 1000,
+          position: 'random',
+          respawnable: true,
+        },
+        {
+          type: Types.Entity.Rock,
+          amount: 10,
+          position: 'random',
+          size: [200, 400],
+        },
+      ],
+    },
+
+    // Left Triangle - Earth Biome
+    {
+      type: Types.Biome.Earth,
+      pos: [-30000, -30000],
+      points: [
+        [0, 0],
+        [0, 60000],
+        [30000, 30000],
+      ],
+      objects: [
+        {
+          type: Types.Entity.MossyRock,
+          amount: 20,
+          position: 'random',
+          size: [500, 700],
+        },
+        {
+          type: Types.Entity.Bush,
+          amount: 320,
+          position: 'random',
+          size: [100, 400],
+        },
+        {
+          type: Types.Entity.Pond,
+          amount: 2,
+          position: 'random',
+          size: 4500,
+        },
+        {
+          type: Types.Entity.Pond,
+          amount: 40,
+          position: 'random',
+          size: [400, 900],
+        },
+        {
+          type: Types.Entity.Coin,
+          amount: 1000,
+          position: 'random',
+          respawnable: true,
+        },
+        {
+          type: Types.Entity.Wolf,
+          amount: 18,
+          position: 'random',
+          respawnable: true,
+          size: [85, 105],
+        },
+        {
+          type: Types.Entity.Cat,
+          amount: 22,
+          position: 'random',
+          respawnable: true,
+          size: [70, 90],
+        },
+        {
+          type: Types.Entity.Bunny,
+          amount: 36,
+          position: 'random',
+          respawnable: true,
+          size: [40, 60],
+        },
+        {
+          type: Types.Entity.Rock,
+          amount: 20,
+          position: 'random',
+          size: [200, 400],
+        },
+        {
+          type: Types.Entity.Moose,
+          amount: 10,
+          position: 'random',
+          respawnable: true,
+          size: [190, 250],
+        },
+        {
+          type: Types.Entity.Chest,
+          amount: 36,
+          position: 'random',
+          respawnable: true,
+        },
+        {
+          type: Types.Entity.Ancient,
+          amount: 6,
+          position: 'random',
+          respawnable: true,
+          respawnTime: [60 * 5, 60 * 15], // 5-15 minutes
+          size: [275, 375],
+          health: 800,
+          isBoss: true,
+          damage: 20,
+          rotationSpeed: 10,
+          swordSize: 100,
+          boulderSize: 200,
+        },
       ],
     },
   ],

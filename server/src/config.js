@@ -67,7 +67,8 @@ module.exports = {
 
   // World settings
   world: {
-    worldHeight: 30000,
-    worldWidth: 30000,
+    worldHeight: 60000,
+    worldWidth: 60000,
+    activeMap: process.env.ACTIVE_MAP || 'main', // Which map configuration to use (see server/src/game/maps/)
   }
 };

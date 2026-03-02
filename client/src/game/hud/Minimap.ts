@@ -95,6 +95,8 @@ class Minimap extends HudComponent {
         case BiomeTypes.Ice: color = 0xffffff; break;
         case BiomeTypes.River: color = 0x4854a2; break;
         case BiomeTypes.Safezone: color = 0x999999; break;
+        case BiomeTypes.Island: color = 0xd4a574; break;
+        case BiomeTypes.Desert: color = 0xf4e4a6; break; // Sandy yellow
       }
 
       const graphics = this.game.add.graphics();
