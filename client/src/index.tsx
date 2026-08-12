@@ -1,11 +1,12 @@
+import { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { RouterProvider, createHashRouter } from 'react-router-dom';
 import App from './ui/App';
 import Profile from './ui/Profile';
-import MetricsPage from './ui/MetricsPage';
 import SupportPage from './ui/SupportPage';
 import NameMaker from './ui/namemaker/NameMaker';
+import AnnouncementsAdminPage from './ui/announcements/AnnouncementsAdminPage';
 import { store } from './redux/store';
 import { config } from './config';
 import { load } from 'recaptcha-v3'
@@ -17,8 +18,11 @@ import { initAnalytics } from './analytics';
 
 import './global.scss';
 
+const MetricsPage = lazy(() => import('./ui/MetricsPage'));
+
 applyHudThemeCss();
 initAnalytics();
+detectAdblock();
 
 const router = createHashRouter([
   {
@@ -39,11 +43,15 @@ const router = createHashRouter([
   },
   {
     path: ':secret/metrics',
-    element: <MetricsPage />,
+    element: <Suspense fallback={null}><MetricsPage /></Suspense>,
   },
   {
     path: ':secret/support',
     element: <SupportPage />,
+  },
+  {
+    path: ':secret/announcements',
+    element: <AnnouncementsAdminPage />,
   },
 ], {
   basename: config.basename,
@@ -80,8 +88,6 @@ crazygamesSDK.init().then(async () => {
     window.dispatchEvent(new CustomEvent('crazygamesSDKReady'));
     window.dispatchEvent(new CustomEvent('adProviderChanged', { detail: 'crazygames' }));
   }
-
-  await detectAdblock();
 
   await initializeDataStorage();
   console.log('CrazyGames data storage initialized');

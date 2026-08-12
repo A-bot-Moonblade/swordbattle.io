@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { cloneElement, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
@@ -61,16 +61,33 @@ import TutorialModal from './game/TutorialModal';
 import HubModal, { HubTab } from './hub/HubModal';
 import SupportButton from './support/SupportButton';
 import SupportModal from './support/SupportModal';
+import AnnouncementsButton from './announcements/AnnouncementsButton';
+import AnnouncementsModal from './announcements/AnnouncementsModal';
 
 let debugMode = false;
 try {
   debugMode = window.location.search.includes("debugAlertMode");
   } catch(e) {}
 
-const fullscreenModals = ['ShopModal', 'RewardsModal', 'InventoryModal', 'ProfileModal', 'FullChangelogModal'];
+const modalClasses = new Map<any, string>([
+  [ShopModal, 'modal-fullscreen'],
+  [RewardsModal, 'modal-fullscreen'],
+  [InventoryModal, 'modal-fullscreen'],
+  [ProfileModal, 'modal-fullscreen'],
+  [FullChangelogModal, 'modal-fullscreen'],
+  [SettingsModal, 'modal-settings'],
+  [LoginModal, 'modal-auth'],
+  [SignupModal, 'modal-auth'],
+  [HubModal, 'modal-hub'],
+  [ClansModal, 'modal-clans'],
+  [SupportModal, 'modal-support'],
+  [AnnouncementsModal, 'modal-announcements'],
+]);
+const instantSwapModals = new Set<any>([ShopModal, RewardsModal, InventoryModal, ProfileModal, FullChangelogModal]);
 const modalCloseMs = 200;
 
 function App({ moreAds = false }: { moreAds?: boolean }) {
+  useEffect(() => { if (moreAds) document.title = 'Swordbattle.io (more ads)'; }, [moreAds]);
   let { skins } = cosmetics;
   const RESET_HOUR = 23; // 0-23 utc
 
@@ -957,13 +974,13 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
 
   const onStart = () => {
     console.log('Starting game');
-    trackPlayClick();
     localStorage.setItem('swordbattle:hasVisited', '1');
     if(!isConnected) {
       alert('Not connected yet');
       return;
     }
     else  {
+      trackPlayClick();
       const go = () => {
         setPendingRespawn(null);
         setGameStarted(true);
@@ -982,13 +999,38 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
 
   const openSettings = () => setModal(<SettingsModal />);
   const openSupport = () => setModal(<SupportModal account={account} />);
+  const openAnnouncements = (id?: number) => setModal(<AnnouncementsModal initialId={typeof id === 'number' ? id : null} />);
+
+  const announcementLinkHandled = useRef(false);
+  useEffect(() => {
+    if (loadingProgress !== 100 || announcementLinkHandled.current) return;
+    announcementLinkHandled.current = true;
+    let linkedId: number | null = null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('announcement');
+      if (v && /^\d+$/.test(v)) linkedId = parseInt(v, 10);
+      if (params.has('announcement')) {
+        params.delete('announcement');
+        const qs = params.toString();
+        window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+      }
+    } catch {}
+    if (linkedId !== null && !gameStarted && !instantStart) openAnnouncements(linkedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingProgress]);
   const closeModal = () => setModal(null);
 
   useEffect(() => {
     if (modal === shownModal) return;
     if (shownModal) {
-      const n = shownModal.type?.displayName || shownModal.type?.name;
-      if (fullscreenModals.includes(n)) {
+      if (modal && shownModal.type === modal.type) {
+        clearTimeout(modalCloseTimer.current);
+        setShownModal(modal);
+        setModalClosing(false);
+        return;
+      }
+      if (instantSwapModals.has(shownModal.type)) {
         setShownModal(modal);
         setModalClosing(false);
         return;
@@ -1106,20 +1148,13 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
     if (authDropdownTimeoutRef.current) clearTimeout(authDropdownTimeoutRef.current);
   }, []);
 
-  const openFullChangelog = () => {
-    setModal(<FullChangelogModal />);
-  };
-
   const openTutorial = () => {
     setShowMenuTutorial(true);
   };
 
   useEffect(() => {
-    if (modal?.type?.displayName === 'ShopModal') {
-      setModal(<ShopModal account={account} />);
-    }
-    if (modal?.type?.displayName === 'RewardsModal') {
-      setModal(<RewardsModal account={account} />);
+    if (modal && modal.type === HubModal) {
+      setModal(cloneElement(modal, { account }));
     }
     if(account.is_v1) {
       setModal(<MigrationModal account={account} />);
@@ -1309,7 +1344,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
                   </div>
                 </div>
                 <div className="accountCard menuCard panel">
-                  <ChangelogCard onViewChangelog={openFullChangelog}/>
+                  <ChangelogCard onViewChangelog={(id: number) => openAnnouncements(id)}/>
                 </div>
               </div>
               <div
@@ -1349,18 +1384,19 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             <FontAwesomeIcon icon={faGear} className='ui-icon'/>
           </div>
           <SupportButton account={account} onOpen={openSupport} />
-          <a id="githubButton" className="altLink imgPanel" href="https://github.com/codergautam/swordbattle.io" target="_blank" rel="nofollow" style={{ pointerEvents: 'auto' }}>
+          <AnnouncementsButton onOpen={() => openAnnouncements()} />
+          {/* <a id="githubButton" className="altLink imgPanel" href="https://github.com/codergautam/swordbattle.io" target="_blank" rel="nofollow" style={{ pointerEvents: 'auto' }}>
             <img src={GithubLogo} width={60} alt="GitHub" />
-          </a>
+          </a> */}
           <a id="discordButton" className="altLink imgPanel" href="https://discord.com/invite/9A9dNTGWb9" target="_blank" rel="nofollow" style={{ pointerEvents: 'auto' }}>
             <img src={DiscordLogo} width={60} alt="Discord" />
           </a>
           </div>
-          {shownModal && (() => { const n = shownModal.type.displayName || shownModal.type.name; const isFullscreen = fullscreenModals.includes(n); const isSettings = n === 'SettingsModal'; const isAuth = n === 'LoginModal' || n === 'SignupModal'; const isHub = n === 'HubModal'; const isClans = n === 'ClansModal'; const isSupport = n === 'SupportModal'; const cls = isFullscreen ? 'modal-fullscreen' : (isSettings ? 'modal-settings' : (isAuth ? 'modal-auth' : (isHub ? 'modal-hub' : (isClans ? 'modal-clans' : (isSupport ? 'modal-support' : ''))))); return <Modal key={n} child={shownModal} requestClose={closeModal} scaleDisabled={isFullscreen || isSettings || isHub || isClans || isSupport || isAuth} className={cls} backdrop={isAuth || isSettings || isHub || isClans || isSupport} backdropClass={isSettings ? 'modal-backdrop-clear' : ''} closing={modalClosing} />; })()}
+          {shownModal && (() => { const cls = modalClasses.get(shownModal.type) ?? ''; const isFullscreen = cls === 'modal-fullscreen'; const isSettings = cls === 'modal-settings'; return <Modal key={shownModal.type.displayName || shownModal.type.name} child={shownModal} requestClose={closeModal} scaleDisabled={!!cls} className={cls} backdrop={!!cls && !isFullscreen} backdropClass={isSettings ? 'modal-backdrop-clear' : ''} closing={modalClosing} />; })()}
           {profileUser && (
             <Modal
               key="profile-overlay"
-              child={<ProfileModal username={profileUser} isOwnProfile={account.isLoggedIn && profileUser === account.username} />}
+              child={<ProfileModal username={profileUser} isOwnProfile={account.isLoggedIn && profileUser === account.username} onOpenClan={(clanId: number) => { closeProfileOverlay(); setModal(<ClansModal account={account} onViewProfile={openProfileOverlay} initialClanId={clanId} />); }} />}
               requestClose={closeProfileOverlay}
               className="modal-profile"
               backdropClass="modal-backdrop-top"

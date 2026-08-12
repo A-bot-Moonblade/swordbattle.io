@@ -1,6 +1,7 @@
 import Coin from "./game/entities/Coin";
 import Player from "./game/entities/Player";
 import { crazygamesSDK, InviteParams } from "./crazygames/sdk";
+import { getAdblockStatus, isAdScriptBlocked } from "./crazygames/adblock";
 
 export function random(min: number, max: number) {
   return min + (Math.random() * (max - min));
@@ -202,39 +203,85 @@ export function findCoinCollector(coin: Coin, players: Player[]) {
 }
 
 
-export function isAdBlockBait(): boolean {
-  if ((window as any)._isCrazyGamesBasicLaunch) return false;
-  try {
-    const bait = document.createElement('div');
-    bait.className = 'adsbox ad-banner ads ad pub_300x250 text-ad textAd';
-    bait.style.cssText = 'position:absolute;left:-9999px;top:-9999px;height:2px;width:2px;';
-    document.body.appendChild(bait);
-    const blocked = bait.offsetParent === null || bait.offsetHeight === 0
-      || window.getComputedStyle(bait).display === 'none';
-    document.body.removeChild(bait);
-    return blocked;
-  } catch (e) {
-    return false;
-  }
-}
 
 export function isAdBlockActive(): boolean {
   const w = window as any;
   if (w._isCrazyGamesBasicLaunch) return false;
-  if (isAdBlockBait()) return true;
-  const provider = w.adProvider || 'adinplay';
-  if (provider === 'adinplay' && w.aiptag
-      && typeof w.aipDisplayTag === 'undefined' && typeof w.aipPlayer === 'undefined') {
-    return true;
-  }
-  return false;
+  return getAdblockStatus() || isAdScriptBlocked();
+}
+
+
+const adMaxWaitMs = 60000;
+
+const aipHasRewardedPlacement = false;
+
+let aipPending: ((evt: string) => void) | null = null;
+
+function aipSettle(evt: string) {
+  const cb = aipPending;
+  aipPending = null;
+  if (cb) cb(evt);
+}
+
+function ensureAipPlayer(w: any): boolean {
+  const existing = w.aiptag?.adplayer;
+  if (existing && typeof existing.startPreRoll === 'function') return true;
+  if (typeof w.aipPlayer !== 'function') return false;
+  w.aiptag.adplayer = new w.aipPlayer({
+    AD_WIDTH: 960,
+    AD_HEIGHT: 540,
+    AD_FULLSCREEN: true,
+    AD_CENTERPLAYER: false,
+    LOADING_TEXT: 'loading advertisement',
+    PREROLL_ELEM: function () { return document.getElementById('preroll'); },
+    AIP_COMPLETE: (evt: any) => { console.log('[ads] preroll complete', evt); aipSettle(String(evt)); },
+    AIP_REWARDEDGRANTED: (evt: any) => { console.log('[ads] rewarded granted', evt); aipSettle('rewarded-granted'); },
+    AIP_REWARDEDNOTGRANTED: (evt: any) => { console.log('[ads] rewarded not granted', evt); aipSettle('rewarded-not-granted'); },
+  });
+  return typeof w.aiptag.adplayer?.startPreRoll === 'function';
+}
+
+function runAdinplayAd(w: any, rewarded: boolean, done: (evt: string) => void) {
+  if (aipPending) { console.warn('[ads] an ad is already running'); done('video-ad-error'); return; }
+
+  let settled = false;
+  const finish = (evt: string) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(failsafe);
+    if (rewarded) document.body.classList.remove('sb-rewarded-ad');
+    done(evt);
+  };
+  const failsafe = setTimeout(() => {
+    console.warn('[ads] adinplay ad timed out, unblocking UI');
+    if (aipPending === finish) aipPending = null;
+    finish('video-ad-timeout');
+  }, adMaxWaitMs);
+
+  aipPending = finish;
+  if (rewarded) document.body.classList.add('sb-rewarded-ad');
+
+  w.aiptag.cmd.player.push(() => {
+    try {
+      if (!ensureAipPlayer(w)) { aipSettle('video-ad-error'); return; }
+      const player = w.aiptag.adplayer;
+      if (rewarded && aipHasRewardedPlacement && typeof player.startRewardedAd === 'function') {
+        player.startRewardedAd({ showLoading: true });
+      } else {
+        player.startPreRoll();
+      }
+    } catch (e) {
+      console.error('[ads] adinplay ad failed to start', e);
+      aipSettle('video-ad-error');
+    }
+  });
 }
 
 export const playVideoAd = (force = false) => {
   const windowAny = window as any;
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<{ played: boolean; evt: string }>((resolve, reject) => {
   // basic launch
-  if(crazygamesSDK.shouldUseSDK()) { resolve(); return; }
+  if(crazygamesSDK.shouldUseSDK()) { resolve({ played: false, evt: 'cg-basic' }); return; }
   if(force || Date.now() - windowAny?.lastVidAdTime > windowAny?.vidAdDelay) {
     // CrazyGames SDK
     if(windowAny?.adProvider === 'crazygames') {
@@ -250,13 +297,13 @@ export const playVideoAd = (force = false) => {
           console.log('[CrazyGames] Video ad finished');
           const event = new CustomEvent('crazyGamesAdFinished');
           window.dispatchEvent(event);
-          resolve();
+          resolve({ played: true, evt: 'video-ad-completed' });
         },
         adError: (error) => {
           console.log('[CrazyGames] Video ad error:', error);
           const event = new CustomEvent('crazyGamesAdFinished');
           window.dispatchEvent(event);
-          resolve();
+          resolve({ played: false, evt: 'video-ad-error' });
         }
       });
     } else if (windowAny?.adProvider === 'gamemonetize' && typeof windowAny.sdk !== 'undefined' && windowAny.sdk.showBanner !== 'undefined') {
@@ -265,7 +312,7 @@ export const playVideoAd = (force = false) => {
     sdk?.showBanner();
     const onComplete = () => {
       console.log('Ad complete');
-      resolve();
+      resolve({ played: true, evt: 'gamemonetize-complete' });
       window.removeEventListener('gamemonetize_event_SDK_BANNER_COMPLETE', onComplete);
     };
     // const onImpression = () => {
@@ -344,24 +391,9 @@ export const playVideoAd = (force = false) => {
            }
            */
 
-    windowAny.aiptag.cmd.player.push(() => {
-      windowAny.aiptag.adplayer = new windowAny.aipPlayer({
-        AD_WIDTH: 960,
-        AD_HEIGHT: 540,
-        AD_FULLSCREEN: true,
-        AD_CENTERPLAYER: false,
-        LOADING_TEXT: "loading advertisement",
-        PREROLL_ELEM: function() { return document.getElementById("preroll"); },
-        AIP_COMPLETE: (evt: any) => {
-          console.log("preroll complete", evt);
-          resolve();
-        }
-      });
-    }
-    );
-    windowAny.aiptag.cmd.player.push(() => {
-      console.log("starting preroll");
-      windowAny.aiptag.adplayer.startPreRoll();
+    runAdinplayAd(windowAny, false, (evt) => {
+      console.log('[ads] preroll finished:', evt);
+      resolve({ played: evt === 'video-ad-completed', evt });
     });
 
 
@@ -377,24 +409,24 @@ export const playVideoAd = (force = false) => {
   } else if(windowAny?.adProvider === 'gamepix' && windowAny?.GamePix) {
     windowAny?.GamePix.interstitialAd().then(function (res: any) {
       console.log('Ad closed', res);
-      resolve();
+      resolve({ played: true, evt: 'gamepix-closed' });
     });
   } else {
     console.log('Adprovider is', windowAny?.adProvider, 'not playing video ad');
-    resolve();
+    resolve({ played: false, evt: 'no-provider' });
   }
 } else {
   console.log('Not playing video ad, last ad was', ((Date.now() - windowAny?.lastVidAdTime)/1000).toFixed(2), 's ago');
-  resolve();
+  resolve({ played: false, evt: 'throttled' });
 }
 });
 }
 
 export const playRewardedAd = () => {
   const windowAny = window as any;
-  return new Promise<{ success: boolean }>((resolve, reject) => {
+  return new Promise<{ success: boolean; evt: string }>((resolve, reject) => {
     // basic launch
-    if(crazygamesSDK.shouldUseSDK()) { resolve({ success: true }); return; }
+    if(crazygamesSDK.shouldUseSDK()) { resolve({ success: true, evt: 'cg-basic' }); return; }
     if(windowAny?.adProvider === 'crazygames') {
       console.log('Playing rewarded ad from CrazyGames');
 
@@ -408,7 +440,7 @@ export const playRewardedAd = () => {
           console.log('[CrazyGames] Rewarded ad finished - user should receive reward');
           const event = new CustomEvent('crazyGamesAdFinished');
           window.dispatchEvent(event);
-          resolve({ success: true });
+          resolve({ success: true, evt: 'rewarded-granted' });
         },
         adError: (error) => {
           console.log('[CrazyGames] Rewarded ad error:', error);
@@ -416,12 +448,19 @@ export const playRewardedAd = () => {
           window.dispatchEvent(event);
 
           // Don't give reward if ad failed
-          resolve({ success: false });
+          resolve({ success: false, evt: 'video-ad-error' });
         }
+      });
+    } else if (windowAny?.adProvider === 'adinplay' && typeof windowAny?.aipPlayer !== 'undefined') {
+      console.log('Playing rewarded ad from adinplay');
+      runAdinplayAd(windowAny, true, (evt) => {
+        const success = evt === 'video-ad-completed' || evt === 'rewarded-granted';
+        console.log('[ads] rewarded result:', evt, '-> success:', success);
+        resolve({ success, evt });
       });
     } else {
       console.log('Rewarded ads not supported for provider:', windowAny?.adProvider);
-      resolve({ success: false });
+      resolve({ success: false, evt: 'no-provider' });
     }
   });
 }

@@ -334,7 +334,7 @@ class GameState {
 
     let reason = event.reason || 'Connection failed';
     if(endpoint) {
-      reason += ` (${endpoint})`;
+      reason += ` (${String(endpoint).split('?')[0]})`;
     }
     this.game.game.events.emit('connectionClosed', reason);
     console.log('connection closed');

@@ -1,4 +1,5 @@
 import gemRewardImg from '../assets/img/gem-reward.png';
+import { withAssetVersion } from '../assetVersion';
 
 const textOutline = '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 3px 0 #000';
 
@@ -11,7 +12,7 @@ export default function AdblockPromo({ w, h, centerOnOverflow }: { w: number; h:
     <div
       role="button"
       tabIndex={0}
-      onClick={() => window.alert('Turn off your ad blocker on swordbattle.io to earn 2× Gems!\n\nAds are how we keep the game free — thanks for the support.')}
+      onClick={() => window.alert('Turn off your ad blocker on swordbattle.io to earn 2x gems from every game!\n\nAds are how we pay for the servers and support is greatly appreciated. Thanks for playing!')}
       style={{
         boxSizing: 'border-box',
         width: w,
@@ -27,7 +28,7 @@ export default function AdblockPromo({ w, h, centerOnOverflow }: { w: number; h:
         cursor: 'pointer',
         userSelect: 'none',
         backgroundColor: '#4c8f34',
-        backgroundImage: "url('assets/game/tiles/alpine.jpg')",
+        backgroundImage: `url('${withAssetVersion('assets/game/tiles/alpine.jpg')}')`,
         backgroundSize: '350px',
         backgroundRepeat: 'repeat',
         fontFamily: "'Saira', sans-serif",

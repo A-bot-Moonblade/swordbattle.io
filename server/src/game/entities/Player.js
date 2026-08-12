@@ -440,6 +440,14 @@ class Player extends Entity {
       dx = speed * Math.cos(this.movementDirection);
       dy = speed * Math.sin(this.movementDirection);
 
+      const dirCos = Math.cos(mouseAngle);
+      const dirSin = Math.sin(mouseAngle);
+      if (Math.abs(dirCos) > Math.abs(dirSin)) {
+        this.lastDirectionInput = dirCos > 0 ? 2 : 4;
+      } else {
+        this.lastDirectionInput = dirSin > 0 ? 3 : 1;
+      }
+
       if(this.modifiers.disableDiagonalMovement) {
         if (Math.abs(dx) > Math.abs(dy)) {
           dy = 0;
@@ -448,6 +456,7 @@ class Player extends Entity {
           dx = 0;
           dy = dy > 0 ? speed : -speed;
         }
+        if (dx !== 0 || dy !== 0) this.movementDirection = Math.atan2(dy, dx);
       }
     } else {
       let directionX = 0;
@@ -478,6 +487,8 @@ class Player extends Entity {
           if (directionX !== 0 && directionY !== 0) {
             dy = directionY * speed;
             dx = 0;
+            this.lastDirectionInput = directionY > 0 ? 3 : 1;
+            this.movementDirection = directionY > 0 ? Math.PI / 2 : -Math.PI / 2;
           }
         }
       } else {
@@ -613,7 +624,7 @@ class Player extends Entity {
           case Types.Entity.Moose: reason = 'A Moose'; break;
           case Types.Entity.AngryFish: reason = 'A Fish'; break;
           case Types.Entity.Yeti: reason = 'A Yeti'; break;
-          case Types.Entity.IceSpirit: reason = 'An Ice Spirit'; break;
+          case Types.Entity.IceSpirit: reason = entity.skin === 1 ? 'A Fire Spirit' : 'An Ice Spirit'; break;
           case Types.Entity.Chimera: reason = 'A Chimera'; break;
           case Types.Entity.Roku: reason = 'Roku'; break;
           case Types.Entity.Snowball: reason = 'Big Yeti'; break; // the yeti boss throws snowballs

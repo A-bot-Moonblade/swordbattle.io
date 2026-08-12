@@ -16,6 +16,8 @@ import YourClanTab from './clans/tabs/YourClanTab';
 import ChatTab from './clans/tabs/ChatTab';
 import EditClanTab from './clans/tabs/EditClanTab';
 import SearchTab from './clans/tabs/SearchTab';
+import XpGateOverlay from './clans/XpGateOverlay';
+import { clanXpRequirement } from './clans/constants';
 import ProfileModal from './ProfileModal';
 import Modal from './Modal';
 import ModalAd from '../ModalAd';
@@ -23,6 +25,7 @@ import ModalAd from '../ModalAd';
 interface ClansModalProps {
   account: AccountState;
   onViewProfile?: (username: string) => void;
+  initialClanId?: number;
 }
 
 type OutsideTab = 'join' | 'create' | 'leaderboard';
@@ -44,7 +47,7 @@ function formatCooldown(ms: number): string {
   return `${total}s`;
 }
 
-function ClansModal({ account, onViewProfile }: ClansModalProps) {
+function ClansModal({ account, onViewProfile, initialClanId }: ClansModalProps) {
   const dispatch = useDispatch();
   const clan = useSelector((s: RootState) => s.account.clan);
   const clanCooldownUntil = useSelector((s: RootState) => s.account.clanCooldownUntil);
@@ -54,8 +57,8 @@ function ClansModal({ account, onViewProfile }: ClansModalProps) {
   const clanId = clan?.clan?.id ?? null;
 
   const [outsideTab, setOutsideTab] = useState<OutsideTab>('join');
-  const [insideTab, setInsideTab] = useState<InsideTab>('your');
-  const [selectedClanId, setSelectedClanId] = useState<number | null>(null);
+  const [insideTab, setInsideTab] = useState<InsideTab>(initialClanId ? 'search' : 'your');
+  const [selectedClanId, setSelectedClanId] = useState<number | null>(initialClanId ?? null);
   const [userProfileOverlay, setUserProfileOverlay] = useState<string | null>(null);
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -146,6 +149,10 @@ function ClansModal({ account, onViewProfile }: ClansModalProps) {
     ? new Date(clanCooldownUntil).getTime() - nowTick
     : 0;
   const showCooldownBanner = !inClan && cooldownRemaining > 0;
+  const showXpGate = !inClan
+    && (outsideTab === 'join' || outsideTab === 'create')
+    && selectedClanId === null
+    && (account.xp ?? 0) < clanXpRequirement;
 
   return (
     <div className="clans-modal">
@@ -181,6 +188,7 @@ function ClansModal({ account, onViewProfile }: ClansModalProps) {
         </div>
       )}
 
+      <div className="clans-body-wrap">
       <div className="clans-body">
         {!inClan && outsideTab === 'join' && (
           <JoinClanTab
@@ -223,6 +231,8 @@ function ClansModal({ account, onViewProfile }: ClansModalProps) {
             onOpenUserProfile={openUserProfile}
           />
         )}
+      </div>
+        {showXpGate && <XpGateOverlay currentXp={account.xp ?? 0} />}
       </div>
 
       {loadingLabel && (

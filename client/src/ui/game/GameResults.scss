@@ -66,6 +66,16 @@
 				font-weight: 700;
 			}
 		}
+
+		.info.gem-info {
+			transition: border-color 0.25s ease, color 0.25s ease;
+
+			&.gem-mult-ad {
+				border-color: #22b6d6;
+				color: #22b6d6;
+				.title { color: #9fe8f7; }
+			}
+		}
 	}
 
 	.results-buttons {

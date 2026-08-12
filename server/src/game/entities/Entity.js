@@ -288,6 +288,20 @@ class Entity {
       || b.y + b.height > map.y + map.height;
   }
 
+  targetInForbiddenBiome(target) {
+    if (!target || !target.shape || this.definition.forbiddenBiomes.length === 0) return false;
+    const tx = target.shape.x;
+    const ty = target.shape.y;
+    let inAnyBiome = false;
+    for (const biome of this.game.map.biomes) {
+      if (!biome.shape || !biome.shape.isPointInside || !biome.shape.isPointInside(tx, ty)) continue;
+      inAnyBiome = true;
+      if (this.definition.forbiddenBiomes.includes(biome.type)) return true;
+    }
+    if (!inAnyBiome && this.definition.forbiddenBiomes.includes(Types.Biome.River)) return true;
+    return false;
+  }
+
   collidesWithForbidden(dt, collide = false) {
     if (this.definition.forbiddenBiomes.length === 0
       && this.definition.forbiddenEntities.length === 0

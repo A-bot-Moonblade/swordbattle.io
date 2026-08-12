@@ -55,7 +55,7 @@ function Leaderboard({ game }: any) {
     return () => io.disconnect();
   }, [players, show, selfId]); // eslint-disable-line
 
-  const scaleStyles = useScale(false).styles;
+  const scaleStyles = { transform: `scale(${useScale(false).factor * 0.9})`, transformOrigin: 'top right' };
   if (hidden) return null;
 
   const selfPlayer = players.find((p) => p.id === selfId);
@@ -101,6 +101,31 @@ function Leaderboard({ game }: any) {
   );
 }
 
+function getRankColor(rank: number) {
+  if (rank === 1) return '#ffff00';
+  if (rank === 2) return '#ccccdc';
+  if (rank === 3) return '#222222';
+  if (rank >= 4 && rank <= 5) return '#00ffff';
+  if (rank >= 6 && rank <= 10) return '#00ff00';
+  if (rank >= 11 && rank <= 25) return '#ff0000';
+  if (rank >= 26 && rank <= 50) return '#ee00ff';
+  if (rank >= 51 && rank <= 75) return '#800080';
+  if (rank >= 76 && rank <= 100) return '#707070';
+  if (rank >= 101 && rank <= 200) return '#575454ff';
+  return 'white';
+}
+
+const measureCtx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+const nameAreaPx = 218;
+function fitFontSize(text: string) {
+  if (!measureCtx) return 17;
+  for (const size of [17, 15, 13]) {
+    measureCtx.font = `700 ${size}px Saira, sans-serif`;
+    if (measureCtx.measureText(text).width <= nameAreaPx) return size;
+  }
+  return 12;
+}
+
 const LeaderboardLine = memo(function LeaderboardLine({ place, coins, name, account, isSelf, innerRef }: any) {
   const balance = coins >= 1000 ? `${(coins / 1000).toFixed(1)}k` : coins;
 
@@ -108,9 +133,10 @@ const LeaderboardLine = memo(function LeaderboardLine({ place, coins, name, acco
 
   const clan = account?.clan;
   const tag = clan && typeof clan === 'object' ? clan.tag : (typeof clan === 'string' ? clan : null);
+  const rank = account?.rank;
 
-  const len = (tag ? tag.length + 3 : 0) + (name?.length || 0);
-  const nameSize = len > 16 ? 13 : 17;
+  const fullText = (tag ? `[${tag}] ` : '') + (name || '') + (rank ? ` (#${rank})` : '');
+  const nameSize = fitFontSize(fullText);
 
   return (
     <div className={`lb-row ${isSelf ? 'self' : ''}`} ref={innerRef}>
@@ -118,6 +144,7 @@ const LeaderboardLine = memo(function LeaderboardLine({ place, coins, name, acco
       <span className="lb-name" style={{ fontSize: nameSize }}>
         {tag && <span className="lb-clan" style={{ color: CLAN_COLOR }}>[{tag}] </span>}
         <StyledName name={name} style={nameStyle} fontSize={nameSize} />
+        {rank && <span className="lb-rank" style={{ color: getRankColor(rank) }}> (#{rank})</span>}
       </span>
       <span className="lb-score">{balance}</span>
     </div>

@@ -4,6 +4,8 @@ import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import api from '../../api';
 import { numberWithCommas, secondsToTime, sinceFrom } from '../../helpers';
 import cosmetics from '../../game/cosmetics.json';
+import { getSkinScale } from '../../game/skinScales';
+import { withAssetVersion } from '../../assetVersion';
 import ModalAd from '../ModalAd';
 import './RankingsTab.scss';
 
@@ -27,7 +29,7 @@ const ranges: Record<string, string> = {
 const skinBody: Record<number, string> = {};
 Object.values((cosmetics as any).skins).forEach((s: any) => { skinBody[s.id] = s.bodyFileName; });
 function skinSrc(skinId?: number) {
-  return `assets/game/player/${skinBody[skinId ?? 1] || 'player.png'}`;
+  return withAssetVersion(`assets/game/player/${skinBody[skinId ?? 1] || 'player.png'}`);
 }
 
 function gameAge(dateLike: any): { text: string; color?: string; bold: boolean } {
@@ -143,7 +145,7 @@ export default function RankingsTab({ onViewProfile }: { onViewProfile?: (userna
       >
         <span className="rk-rank">{i + 1}</span>
         <div className="rk-skin">
-          <img src={skinSrc(row.skinId)} alt="" draggable={false} />
+          <img src={skinSrc(row.skinId)} alt="" draggable={false} style={{ transform: `scale(${getSkinScale(row.skinId ?? 1)})` }} />
         </div>
         <div className="rk-main">
           <div className="rk-name">

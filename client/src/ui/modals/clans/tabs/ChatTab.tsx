@@ -4,6 +4,8 @@ import { RootState } from '../../../../redux/store';
 import { postChat, fetchChatHistory } from '../../../../redux/clans/slice';
 import { clanChatMaxLength } from '../constants';
 import cosmetics from '../../../../game/cosmetics.json';
+import { getSkinScale } from '../../../../game/skinScales';
+import { withAssetVersion } from '../../../../assetVersion';
 
 const skinBase = 'assets/game/player/';
 const sendCooldownMs = 1500;
@@ -31,7 +33,7 @@ function skinImage(skinId: number | null): string | null {
   if (skinUrlCache[skinId]) return skinUrlCache[skinId];
   const skin = Object.values((cosmetics as any).skins).find((s: any) => s.id === skinId) as any;
   if (!skin) return null;
-  const url = `${skinBase}${skin.bodyFileName}`;
+  const url = withAssetVersion(`${skinBase}${skin.bodyFileName}`);
   skinUrlCache[skinId] = url;
   return url;
 }
@@ -178,7 +180,7 @@ export default function ChatTab({ onOpenUserProfile }: ChatTabProps) {
       const skin = skinImage(m.skinId);
       nodes.push(
         <div key={m.id} className="clan-chat__msg">
-          {skin ? <img className="skin" src={skin} alt="" /> : <div className="skin" />}
+          {skin ? <img className="skin" src={skin} alt="" style={{ transform: `scale(${getSkinScale(m.skinId ?? 1)})` }} /> : <div className="skin" />}
           <div className="body">
             <div className="top">
               <a className="username user-link" onClick={() => m.username && onOpenUserProfile(m.username)}>

@@ -2,7 +2,7 @@
   position: fixed;
   top: 12px;
   right: 12px;
-  width: 270px;
+  width: 345px;
   color: #fff;
   font-family: 'Saira', sans-serif;
   font-weight: 700;
@@ -84,6 +84,7 @@
       font-weight: 700;
 
       .lb-clan { color: var(--ui-accent); }
+      .lb-rank { font-weight: 700; }
     }
 
     .lb-score {
