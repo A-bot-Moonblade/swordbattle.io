@@ -26,6 +26,8 @@ class GameMap {
   private lastCamW = -1;
   private lastCamH = -1;
   private camResized = true;
+  private coastBuildHandle: any = null;
+  private coastBuildVersion = 0;
 
   constructor(scene: Game) {
     this.scene = scene;
@@ -90,6 +92,7 @@ class GameMap {
     if (sig && sig === this.lastMapSig && this.biomes.length > 0) {
       return;
     }
+    this.cancelDeferredWork();
     this.lastMapSig = sig;
 
     for (const biome of this.biomes) {
@@ -147,10 +150,36 @@ class GameMap {
     console.log('[map] static decorations on map:', this.staticObjects.length);
     this.sortBiomes();
     this.createRiverBackdrop();
-    this.createRiverBorders();
+    this.scheduleRiverBorders();
     this.createWorldCutout();
     this.createMapBorder();
     this.scene.hud.minimap.updateMapData();
+  }
+
+  cancelDeferredWork() {
+    this.coastBuildVersion++;
+    if (this.coastBuildHandle === null) return;
+    clearTimeout(this.coastBuildHandle);
+    this.coastBuildHandle = null;
+  }
+
+  scheduleRiverBorders() {
+    this.cancelDeferredWork();
+    const mapSig = this.lastMapSig;
+    const buildVersion = this.coastBuildVersion;
+    const run = (attempt: number) => {
+      this.coastBuildHandle = null;
+      if (mapSig !== this.lastMapSig || buildVersion !== this.coastBuildVersion) return;
+      void this.createRiverBorders(buildVersion).catch(error => {
+        if (mapSig !== this.lastMapSig || buildVersion !== this.coastBuildVersion) return;
+        if (attempt < 2) {
+          this.coastBuildHandle = setTimeout(() => run(attempt + 1), 250);
+          return;
+        }
+        console.error('[GameMap] Failed to create river borders', error);
+      });
+    };
+    this.coastBuildHandle = setTimeout(() => run(0), 0);
   }
 
   createWorldCutout() {
@@ -224,7 +253,9 @@ class GameMap {
       case BiomeTypes.Desert: BiomeClass = Biome; break;
       case BiomeTypes.Oasis: BiomeClass = Biome; break;
     }
-    if (!BiomeClass) return console.log('Unknown biome type: ', biomeData.type);
+    // Statement, not `return console.log(...)` - terser only strips calls whose
+    // return value is discarded, so the old form survived into production.
+    if (!BiomeClass) { console.log('Unknown biome type: ', biomeData.type); return; }
 
     const biome = new BiomeClass(this.scene, biomeData);
     const depth = biomeData.nestingDepth || 0;
@@ -248,7 +279,7 @@ class GameMap {
     return { x: shape.x, y: shape.y };
   }
 
-  createRiverBorders() {
+  async createRiverBorders(buildVersion = this.coastBuildVersion) {
     const lands = this.biomes.filter(b =>
       b.type !== BiomeTypes.River &&
       b.type !== BiomeTypes.Safezone &&
@@ -283,12 +314,19 @@ class GameMap {
     const worldH = maxY - minY;
 
     const isMobile = this.scene.isMobile;
-    const canvasScale = isMobile ? 0.07 : 0.13;
+    const maxCanvasSize = isMobile ? 2048 : 4096;
+    const maxCanvasPixels = isMobile ? 3000000 : 8000000;
+    let canvasScale = isMobile ? 0.06 : 0.075;
+    canvasScale = Math.min(
+      canvasScale,
+      maxCanvasSize / worldW,
+      maxCanvasSize / worldH,
+      Math.sqrt(maxCanvasPixels / (worldW * worldH)),
+    );
     const canvasW = Math.ceil(worldW * canvasScale);
     const canvasH = Math.ceil(worldH * canvasScale);
 
-    const maxCanvasSize = isMobile ? 4092 : 8192;
-    if (canvasW > maxCanvasSize || canvasH > maxCanvasSize) {
+    if (canvasW < 1 || canvasH < 1 || canvasW > maxCanvasSize || canvasH > maxCanvasSize) {
       console.warn(`[GameMap] River border canvas too large (${canvasW}x${canvasH}), skipping`);
       return;
     }
@@ -340,7 +378,9 @@ class GameMap {
       ctx.lineCap = 'round';
 
       const eMid = 250, feather = 215;
-      const maxw = 440, minw = 36, steps = 30;
+      const maxw = 440, minw = 36, steps = isMobile ? 12 : 18;
+      const stepsPerFrame = isMobile ? 2 : 3;
+      const nextFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
       ctx.save();
       clipWorld(ctx);
       ctx.globalCompositeOperation = 'source-over';
@@ -357,6 +397,14 @@ class GameMap {
           ctx.strokeStyle = pats[sandKeyForBiome(river.type)];
           this.strokeRiverOutline(ctx, river.shape as any, toX, toY, canvasScale);
         }
+        if ((i + 1) % stepsPerFrame === 0 && i + 1 < steps) {
+          await nextFrame();
+          if (buildVersion !== this.coastBuildVersion) {
+            canvas.width = 1;
+            canvas.height = 1;
+            return;
+          }
+        }
       }
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'destination-out';
@@ -369,7 +417,18 @@ class GameMap {
       ctx.save();
       clipWorld(ctx);
       const ov = 30;
-      const riverSegs = sandLands.map(r => this.coastSegments(r.shape as any));
+      const riverSegs: { x: number, y: number, nx: number, ny: number }[][][] = [];
+      for (let i = 0; i < sandLands.length; i++) {
+        riverSegs.push(this.coastSegments(sandLands[i].shape as any));
+        if ((i + 1) % 3 === 0 && i + 1 < sandLands.length) {
+          await nextFrame();
+          if (buildVersion !== this.coastBuildVersion) {
+            canvas.width = 1;
+            canvas.height = 1;
+            return;
+          }
+        }
+      }
       for (let ri = 0; ri < sandLands.length; ri++) {
         ctx.fillStyle = pats[sandKeyForBiome(sandLands[ri].type)];
         for (const seg of riverSegs[ri]) {
@@ -386,6 +445,12 @@ class GameMap {
         }
       }
       ctx.restore();
+
+      if (buildVersion !== this.coastBuildVersion) {
+        canvas.width = 1;
+        canvas.height = 1;
+        return;
+      }
 
       const key = 'riverShoreBlobs';
       if (this.scene.textures.exists(key)) this.scene.textures.remove(key);

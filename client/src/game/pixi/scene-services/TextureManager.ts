@@ -1,4 +1,4 @@
-import { Texture, BaseTexture, RenderTexture, SCALE_MODES } from 'pixi.js';
+import { Texture, BaseTexture, RenderTexture, SCALE_MODES } from 'pixi.js-legacy';
 
 export class ShimTexture {
   key: string;

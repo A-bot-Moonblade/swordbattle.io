@@ -9,6 +9,17 @@ const barMinRarity = 3;
 const oreBaseMult = 0.67;
 const oreZoneTarget = { good: 1.2, great: 1.6, perfect: 2.0 };
 const oreBarMissMult = 0.9;
+const breakCoinCounts = [
+  [6, 10],
+  [7, 12],
+  [8, 14],
+  [9, 16],
+  [12, 20],
+  [15, 24],
+  [19, 29],
+  [23, 34],
+  [28, 40],
+];
 
 function perimeterPoint(points, t) {
   const segs = [];
@@ -33,14 +44,14 @@ function perimeterPoint(points, t) {
 
 const tiers = [
   [180,  100,   15,   550],
-  [220,  300,   45,   420],
-  [280,  700,   110,  300],
-  [340,  1400,  180,  160],
-  [420,  3200,  250,  90],
-  [520,  7000,  320,  45],
-  [620,  14000, 400,  22],
-  [720,  24000, 500,  11],
-  [820,  40000, 600,  5],
+  [220,  300,   30,   420],
+  [280,  700,   45,  300],
+  [340,  1400,  90,  160],
+  [420,  3200,  150,  90],
+  [520,  7000,  225,  45],
+  [620,  14000, 300,  22],
+  [720,  24000, 400,  11],
+  [820,  40000, 500,  5],
 ];
 
 const oreHitboxBase = [
@@ -302,14 +313,20 @@ class Ore extends Entity {
 
   spawnCoinsAround(totalCoinValue, ring) {
     const map = this.game.map;
-    let count = ring ? (6 + helpers.randomInteger(0, 4)) : (3 + helpers.randomInteger(0, 2));
+    const breakCountRange = this.isBoss
+      ? [48, 60]
+      : breakCoinCounts[Math.min(this.rarity, breakCoinCounts.length - 1)];
+    let count = ring
+      ? helpers.randomInteger(breakCountRange[0], breakCountRange[1])
+      : (3 + helpers.randomInteger(0, 2));
 
     const entityBuffer = 500;
     const availableSlots = this.game.maxEntities - this.game.entities.size - entityBuffer;
     count = Math.min(count, Math.max(0, availableSlots));
     if (count <= 0) return;
 
-    const coinValue = totalCoinValue / count;
+    const coinValue = Math.floor(totalCoinValue / count);
+    const extraValueCoins = totalCoinValue % count;
     const center = this.shape.center;
     const bounds = this.shape.boundary;
 
@@ -323,7 +340,7 @@ class Ore extends Entity {
         map.addEntity({
           type: Types.Entity.Coin,
           position: [center.x + helpers.random(-15, 15), center.y + helpers.random(-15, 15)],
-          value: coinValue,
+          value: coinValue + (i < extraValueCoins ? 1 : 0),
           velocity: [Math.cos(angle) * speed, Math.sin(angle) * speed],
         });
       }
@@ -337,7 +354,7 @@ class Ore extends Entity {
         map.addEntity({
           type: Types.Entity.Coin,
           position: [center.x + helpers.random(-12, 12), center.y + helpers.random(-12, 12)],
-          value: coinValue,
+          value: coinValue + (i < extraValueCoins ? 1 : 0),
           velocity: [Math.cos(angle) * speed, Math.sin(angle) * speed],
         });
       }

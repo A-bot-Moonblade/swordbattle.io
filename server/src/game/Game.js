@@ -178,7 +178,7 @@ class Game {
     if (data.spectate && !client.spectator.isSpectating) {
       console.log('[CAPTCHA] Spectate request - recaptchaSecretKey:', !!config.recaptchaSecretKey, 'captchaVerified:', client.captchaVerified, 'hasCaptchaP1:', !!data.captchaP1);
 
-      if(config.recaptchaSecretKey && !client.captchaVerified && !data.captchaP1) {
+      if(config.captchaEnabled && !client.captchaVerified && !data.captchaP1) {
         console.log('[CAPTCHA] Spectate rejected - no captcha data provided');
         try {
           client.socket.close();
@@ -186,7 +186,7 @@ class Game {
           console.log(e)
         }
         return;
-      } else if(config.recaptchaSecretKey && !client.captchaVerified && data.captchaP1) {
+      } else if(config.captchaEnabled && !client.captchaVerified && data.captchaP1) {
         console.log('[CAPTCHA] Verifying spectate captcha...');
         const captchaAsText = helpers.importCaptcha(data);
         console.log('[CAPTCHA] Captcha token length:', captchaAsText?.length);
@@ -216,7 +216,7 @@ class Game {
           console.log('[CAPTCHA] Spectate captcha verification error:', err);
           client.socket.close();
         });
-      } else if(!config.recaptchaSecretKey || client.captchaVerified) {
+      } else if(!config.captchaEnabled || client.captchaVerified) {
         console.log('[CAPTCHA] Spectate allowed without captcha check - disabled or already verified');
         this.addSpectator(client);
       }
@@ -258,12 +258,12 @@ class Game {
       }
 
       client.lastPlayTime = now;
-      if(config.recaptchaSecretKey && !data.captchaP1) {
+      if(config.captchaEnabled && !data.captchaP1) {
         console.log('[CAPTCHA] Play rejected - no captcha data provided');
         client.socket.close();
         return;
       }
-      if(config.recaptchaSecretKey && data.captchaP1) {
+      if(config.captchaEnabled && data.captchaP1) {
         console.log('[CAPTCHA] Verifying play captcha...');
         const captchaAsText = helpers.importCaptcha(data);
         console.log('[CAPTCHA] Captcha token length:', captchaAsText?.length);
@@ -544,11 +544,13 @@ class Game {
     }
 
     if (client.account && client.account.id) {
-      // Make sure same account can't join twice
-      for (const player of this.players) {
-        if (player?.client?.account && player.client.account?.id === client.account.id) {
-          return;
-        }
+      for (const player of Array.from(this.players)) {
+        const otherClient = player?.client;
+        if (!otherClient || otherClient === client) continue;
+        if (otherClient.account?.id !== client.account.id) continue;
+        console.log(`[JOIN] account ${client.account.id} already has an active session`);
+        try { client.socket.end(4409, 'Account is already in-game'); } catch (e) {}
+        return null;
       }
     }
 

@@ -1,4 +1,4 @@
-import { Container as PixiContainer, RenderTexture as PixiRT } from 'pixi.js';
+import { Container as PixiContainer, RenderTexture as PixiRT } from 'pixi.js-legacy';
 import { Sprite } from './Sprite';
 
 type BatchEntry = { child: any; x: number; y: number; px: number; py: number; visible: boolean; renderable: boolean; parent: any };
@@ -6,7 +6,9 @@ type BatchEntry = { child: any; x: number; y: number; px: number; py: number; vi
 export class RenderTexture extends Sprite {
   rt: PixiRT;
   private static scratch: PixiContainer | null = null;
-  private batchList: BatchEntry[] | null = null;
+  private batchList: BatchEntry[] = [];
+  private batchCount = 0;
+  private batching = false;
 
   constructor(x = 0, y = 0, width = 32, height = 32) {
     const rt = PixiRT.create({ width: Math.max(1, Math.ceil(width)), height: Math.max(1, Math.ceil(height)), resolution: 1 });
@@ -24,49 +26,72 @@ export class RenderTexture extends Sprite {
     const r = this._renderer();
     if (r) {
       try {
-        r.renderTexture.bind(this.rt);
-        r.renderTexture.clear([0, 0, 0, 0]);
-        r.renderTexture.bind(null);
+        if (r.renderTexture) {
+          r.renderTexture.bind(this.rt);
+          r.renderTexture.clear([0, 0, 0, 0]);
+          r.renderTexture.bind(null);
+        } else {
+          const target = (this.rt.baseTexture as any)._canvasRenderTarget;
+          if (target) target.clear();
+        }
       } catch (e) { /* noop */ }
     }
     return this;
   }
 
-  beginDraw(): this { this.batchList = []; return this; }
-
-  batchDraw(child: any, x?: number, y?: number): this {
-    if (!this.batchList) return this.draw(child, x, y);
-    if (!child) return this;
-    const moved = x !== undefined;
-    this.batchList.push({
-      child,
-      x: moved ? (x as number) : child.x,
-      y: moved ? (y === undefined ? (x as number) : y) : child.y,
-      px: child.x, py: child.y,
-      visible: child.visible, renderable: child.renderable,
-      parent: child.parent,
-    });
+  beginDraw(): this {
+    this.batchCount = 0;
+    this.batching = true;
     return this;
   }
 
+  batchDraw(child: any, x?: number, y?: number): this {
+    if (!this.batching) return this.draw(child, x, y);
+    if (!child) return this;
+    const moved = x !== undefined;
+    let entry = this.batchList[this.batchCount];
+    if (!entry) {
+      entry = {} as BatchEntry;
+      this.batchList.push(entry);
+    }
+    entry.child = child;
+    entry.x = moved ? (x as number) : child.x;
+    entry.y = moved ? (y === undefined ? (x as number) : y) : child.y;
+    entry.px = child.x;
+    entry.py = child.y;
+    entry.visible = child.visible;
+    entry.renderable = child.renderable;
+    entry.parent = child.parent;
+    this.batchCount++;
+    return this;
+  }
+
+  renderScale = 1;
+
   endDraw(): this {
     const list = this.batchList;
-    this.batchList = null;
-    if (!list || !list.length) return this;
+    const count = this.batchCount;
+    this.batchCount = 0;
+    this.batching = false;
+    if (!count) return this;
     const r = this._renderer();
     if (!r) return this;
     let scratch = RenderTexture.scratch;
     if (!scratch) scratch = RenderTexture.scratch = new PixiContainer();
-    for (const e of list) {
+    scratch.scale.set(this.renderScale);
+    for (let i = 0; i < count; i++) {
+      const e = list[i];
       e.child.visible = true;
       e.child.renderable = true;
       e.child.position.set(e.x, e.y);
       scratch.addChild(e.child);
     }
     try {
-      r.render(scratch, { renderTexture: this.rt, clear: false, skipUpdateTransform: false });
+      r.render(scratch, { renderTexture: this.rt, clear: true, skipUpdateTransform: false });
     } catch (e) { /* noop */ }
-    for (const e of list) {
+    scratch.scale.set(1);
+    for (let i = 0; i < count; i++) {
+      const e = list[i];
       scratch.removeChild(e.child);
       if (e.parent) e.parent.addChild(e.child);
       e.child.visible = e.visible;

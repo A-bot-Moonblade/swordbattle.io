@@ -11,8 +11,13 @@ function InGameSettings() {
 
   useEffect(() => {
     const toggle = () => setOpen((o) => !o);
+    const close = () => setOpen(false);
     window.addEventListener('toggleInGameSettings', toggle);
-    return () => window.removeEventListener('toggleInGameSettings', toggle);
+    window.addEventListener('closeInGameSettings', close);
+    return () => {
+      window.removeEventListener('toggleInGameSettings', toggle);
+      window.removeEventListener('closeInGameSettings', close);
+    };
   }, []);
 
   if (!open) return null;
@@ -54,6 +59,7 @@ function InGameSettings() {
             <input type="checkbox" checked={!!cameraFollowsMouse}
               onChange={(e) => apply('cameraFollowsMouse', e.target.checked, setCameraFollowsMouse)} />
           </label>
+
         </div>
       </div>
     </div>

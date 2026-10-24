@@ -1,0 +1,59 @@
+.prompt-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  animation: promptBackdropIn 0.18s ease-out both;
+}
+
+.prompt-dialog {
+  width: 420px;
+  max-width: 100%;
+  padding: 24px;
+  background: #1b1b1e;
+  border: 3px solid #9a9a9e;
+  border-radius: 14px;
+  box-shadow: 0 0 0 3px #000, 0 16px 40px rgba(0, 0, 0, 0.55);
+  color: #e7e7ec;
+  animation: promptDialogIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  h2 { margin: 0 0 10px; }
+  p { margin: 0 0 16px; white-space: pre-line; line-height: 1.4; }
+  input, textarea { width: 100%; min-height: 42px; padding: 9px 11px; border: 2px solid #000; border-radius: 8px; outline: none; font: inherit; color: #fff; background: #34343a; resize: vertical; }
+}
+
+.prompt-dialog-input {
+  position: relative;
+
+  input { padding-right: 40px; padding-left: 40px; }
+  .prompt-dialog-validation { position: absolute; top: 50%; right: 14px; transform: translateY(-50%); font-size: 20px; font-weight: 700; pointer-events: none; }
+  &.status-checking .prompt-dialog-validation { color: #9a9aa2; }
+  &.status-valid .prompt-dialog-validation { color: #2ec84a; }
+  &.status-invalid .prompt-dialog-validation { color: #ff5e52; }
+}
+
+.prompt-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+
+  button { padding: 9px 16px; border: 2px solid #000; border-radius: 8px; color: #fff; background: #34343a; font-weight: 700; cursor: pointer; }
+  .primary { background: #36c44b; }
+}
+
+.prompt-dialog-error { margin-top: 8px; color: #ff8f8f; font-size: 13px; }
+
+@keyframes promptBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes promptDialogIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

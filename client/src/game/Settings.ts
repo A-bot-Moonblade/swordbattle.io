@@ -1,4 +1,4 @@
-const isDev = process.env.NODE_ENV === 'development';
+import { crazygamesSDK } from '../crazygames/sdk';
 
 interface SettingType {
   name: string;
@@ -47,24 +47,6 @@ export const settingsList: Record<string, SettingType> = {
         }
       },
     },
-  useWebGL: {
-    name: 'Use WebGL (requires reload)',
-    type: 'toggle',
-    default: true,
-    onChange: (newValue: boolean) => {
-      const saved = localStorage.getItem('swordbattle:WebGL');
-      if (newValue) {
-        localStorage.setItem('swordbattle:WebGL', 'OK');
-        // Player explicitly re-enabled WebGL — clear the auto-fail flag so it's tried again
-        localStorage.removeItem('swordbattle:webgl_failed');
-      } else {
-        localStorage.removeItem('swordbattle:WebGL');
-      }
-      if (saved !== (newValue ? 'OK' : null)) {
-        window.location.reload();
-      }
-    },
-  },
   antialiasing: {
     name: 'Antialiasing',
     type: 'toggle',
@@ -96,7 +78,6 @@ export const settingsList: Record<string, SettingType> = {
     min: 30,
     max: 100,
     onChange: () => {
-      // Emit resize event to update game resolution
       window.dispatchEvent(new Event('resize'));
     },
   },
@@ -177,6 +158,20 @@ export const settingsList: Record<string, SettingType> = {
     type: 'toggle',
     default: false,
   },
+  moreAds: {
+    name: 'More ads',
+    type: 'toggle',
+    default: false,
+    onChange: (value: boolean) => {
+      window.dispatchEvent(new CustomEvent('moreAdsChanged', { detail: { enabled: value } }));
+      if (isLoaded) {
+        setTimeout(() => {
+          window.onbeforeunload = null;
+          window.location.reload();
+        }, 0);
+      }
+    },
+  },
 };
 
 export const Settings: any = {};
@@ -184,33 +179,68 @@ export const Settings: any = {};
 class SettingsManager {
   key: string = 'swordbattle:settings';
 
+  /* Live value behind each Settings property. Held here rather than in a per-key
+     closure so a default can be revised later without going through the setter,
+     which would persist it and turn it into an explicit user choice. */
+  private values: Record<string, any> = {};
+
   initialize() {
+    // CrazyGames players expect mouse-only movement, so move the default before
+    // the properties are defined. Saved settings are applied below and still win.
+    if (crazygamesSDK.isCrazyGamesContext()) {
+      settingsList.movementMode.default = 'mouse';
+    }
+
     for (const key in settingsList) {
       const setting = settingsList[key as keyof typeof settingsList];
-      let value = setting.default;
+      this.values[key] = setting.default;
 
       Object.defineProperty(Settings, key, {
-        get: () => value,
+        get: () => this.values[key],
         set: (newValue) => {
-          value = newValue;
-          this.saveSetting(key, newValue);
+          this.values[key] = newValue;
+          this.saveSettingSafe(key, newValue);
         },
       })
     }
 
-    if (!localStorage.getItem('swordbattle:webgl_migrated')) {
-      localStorage.setItem('swordbattle:webgl_migrated', '1');
+    try {
       const saved = this.get();
-      if (saved.useWebGL === undefined) {
-        localStorage.setItem('swordbattle:WebGL', 'OK');
+      if (saved.useWebGL !== undefined) {
+        delete saved.useWebGL;
+        localStorage.setItem(this.key, JSON.stringify(saved));
       }
-    }
+      localStorage.removeItem('swordbattle:WebGL');
+      localStorage.removeItem('swordbattle:webgl_failed');
+      localStorage.removeItem('swordbattle:webgl_failed_at');
+      localStorage.removeItem('swordbattle:webgl_slow');
+      localStorage.removeItem('swordbattle:webgl_lost_count');
+      localStorage.removeItem('swordbattle:webgl_lost_at');
+      sessionStorage.removeItem('swordbattle:canvasThisSession');
+    } catch (e) {}
 
     const savedSettings = this.get();
     for (const key in savedSettings) {
       Settings[key] = savedSettings[key];
     }
     isLoaded = true;
+
+    // The SDK reports its environment after this module evaluates, so the check
+    // above always misses on CrazyGames and this is the path that actually lands.
+    // Written straight to the value slot: assigning through Settings would run the
+    // setter and persist it, making a default indistinguishable from a deliberate
+    // choice. get() reads saved settings, so an explicit pick still wins.
+    try {
+      window.addEventListener('crazygamesSDKReady', () => {
+        if (this.get().movementMode !== undefined) return;
+        settingsList.movementMode.default = 'mouse';
+        this.values.movementMode = 'mouse';
+      }, { once: true });
+    } catch (e) {}
+  }
+
+  saveSettingSafe(key: string, value: any) {
+    try { this.saveSetting(key, value); } catch (e) {}
   }
 
   get() {

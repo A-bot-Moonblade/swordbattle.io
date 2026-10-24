@@ -30,6 +30,8 @@ module.exports = {
   // Recaptcha Secret key
   recaptchaSecretKey: process.env.RECAPTCHA_SECRET_KEY || '',
 
+  captchaEnabled: false,
+
   // Game configuration settings
   tickRate: 20,
 

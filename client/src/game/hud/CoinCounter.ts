@@ -1,5 +1,6 @@
 import HudComponent from './HudComponent';
 import { drawPanel } from './panel';
+import { getTheme } from '../../hudTheme';
 
 interface Row {
   key: string;
@@ -60,14 +61,20 @@ class CoinCounter extends HudComponent {
     for (const r of this.rows) {
       r.container.setVisible(r.visible);
       if (!r.visible) continue;
-      const w = pad + ICON + gap + Math.ceil(r.text.width) + pad;
+      const w = pad + ICON + gap + Math.max(r.shownW, Math.ceil(r.text.width)) + pad;
       r.panel.clear();
-      drawPanel(r.panel, -w / 2, -rowH / 2, w, rowH, { radius: 11 });
+      drawPanel(r.panel, -w / 2, -rowH / 2, w, rowH, { radius: getTheme().radius * 1.1 });
       r.icon.setPosition(-w / 2 + pad, 0);
       r.text.setPosition(-w / 2 + pad + ICON + gap, 0);
       r.container.setPosition(w / 2, y + rowH / 2);
       y += rowH + rowGap;
     }
+  }
+
+  applyTheme() {
+    const t = getTheme();
+    for (const row of this.rows) row.text.setColor(t.text).setStroke(t.textOutline, t.textOutlineW);
+    this.layout();
   }
 
   private pulse(r: Row) {
@@ -88,7 +95,7 @@ class CoinCounter extends HudComponent {
   private setRowText(r: Row, str: string) {
     if (r.text.text === str) return;
     r.text.setText(str);
-    const w = Math.ceil(r.text.width);
+    const w = Math.ceil(r.text.width / 8) * 8;
     if (w !== r.shownW) { r.shownW = w; this.layout(); }
   }
 

@@ -18,6 +18,7 @@ const getCSSModuleLocalIdent = require('react-dev-utils/getCSSModuleLocalIdent')
 const ESLintPlugin = require('eslint-webpack-plugin');
 const paths = require('./paths');
 const modules = require('./modules');
+const assetVersion = process.env.REACT_APP_ASSET_VER || 'dev';
 const getClientEnvironment = require('./env');
 const ModuleNotFoundPlugin = require('react-dev-utils/ModuleNotFoundPlugin');
 const ForkTsCheckerWebpackPlugin =
@@ -29,7 +30,7 @@ const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin'
 const createEnvironmentHash = require('./webpack/persistentCache/createEnvironmentHash');
 
 // Source maps are resource heavy and can cause out of memory issue for large source files.
-const shouldUseSourceMap = process.env.GENERATE_SOURCEMAP !== 'false';
+const shouldUseSourceMap = process.env.GENERATE_SOURCEMAP === 'true';
 
 const reactRefreshRuntimeEntry = require.resolve('react-refresh/runtime');
 const reactRefreshWebpackPluginRuntimeEntry = require.resolve(
@@ -210,11 +211,11 @@ module.exports = function (webpackEnv) {
       // There will be one main bundle, and one file per asynchronous chunk.
       // In development, it does not produce real files.
       filename: isEnvProduction
-        ? 'static/js/[name].[contenthash:8].js'
+        ? `static/js/[name].[contenthash:8].${assetVersion}.js`
         : isEnvDevelopment && 'static/js/bundle.js',
       // There are also additional JS chunk files if you use code splitting.
       chunkFilename: isEnvProduction
-        ? 'static/js/[name].[contenthash:8].chunk.js'
+        ? `static/js/[name].[contenthash:8].${assetVersion}.chunk.js`
         : isEnvDevelopment && 'static/js/[name].chunk.js',
       assetModuleFilename: 'static/media/[name].[hash][ext]',
       // webpack uses `publicPath` to determine where the app is being served from.
@@ -273,6 +274,12 @@ module.exports = function (webpackEnv) {
               // Pending further investigation:
               // https://github.com/terser-js/terser/issues/120
               inline: 2,
+              // Players should not see the boot/loader/CrazyGames chatter. This
+              // strips console.log/debug/info calls from production builds only -
+              // dev keeps everything. warn and error survive on purpose.
+              // The ?boottiming and ?loaderdebug tools call console through an
+              // alias so they keep working in prod; see src/bootTiming.ts.
+              pure_funcs: ['console.log', 'console.debug', 'console.info', 'console.time', 'console.timeEnd'],
             },
             mangle: {
               safari10: true,
@@ -566,6 +573,8 @@ module.exports = function (webpackEnv) {
       ].filter(Boolean),
     },
     plugins: [
+      require('../../scripts/updatebanners').webpackPlugin(),
+      require('../../scripts/updatefonts').webpackPlugin(),
       // Generates an `index.html` file with the <script> injected.
       new HtmlWebpackPlugin(
         Object.assign(
@@ -574,7 +583,7 @@ module.exports = function (webpackEnv) {
             inject: true,
             template: paths.appHtml,
           },
-          { adProvider: env.raw.AD_PROVIDER ?? 'adinplay' },
+          { adProvider: env.raw.AD_PROVIDER ?? 'adsense' },
           isEnvProduction
             ? {
                 minify: {
@@ -629,8 +638,8 @@ module.exports = function (webpackEnv) {
         new MiniCssExtractPlugin({
           // Options similar to the same options in webpackOptions.output
           // both options are optional
-          filename: 'static/css/[name].[contenthash:8].css',
-          chunkFilename: 'static/css/[name].[contenthash:8].chunk.css',
+          filename: `static/css/[name].[contenthash:8].${assetVersion}.css`,
+          chunkFilename: `static/css/[name].[contenthash:8].${assetVersion}.chunk.css`,
         }),
       // Generate an asset manifest file with the following content:
       // - "files" key: Mapping of all asset filenames to their corresponding

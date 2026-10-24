@@ -1,4 +1,4 @@
-import { cloneElement, useCallback, useEffect, useRef, useState } from 'react';
+import { cloneElement, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
@@ -41,6 +41,7 @@ import MigrationModal from './modals/MigrationModal';
 import { getCookies, playVideoAd } from '../helpers';
 import Ad from './Ad';
 import { Settings } from '../game/Settings';
+import { getGameRuntime } from '../game/gameRuntime';
 import { getServerList, updatePing } from '../ServerList';
 import AccountCard from './AccountCard';
 import ChangelogCard from './ChangelogCard';
@@ -48,12 +49,13 @@ import LeaderboardCard from './LeaderboardCard';
 // import Game from '../game/scenes/Game';
 import titleImg from '../assets/img/final.png';
 import Leaderboard from './game/Leaderboard';
-import { crazygamesSDK } from '../crazygames/sdk';
+import { crazygamesSDK, applyCrazygamesFirstVisitAutoStart } from '../crazygames/sdk';
+import { markOnce, reportOnce } from '../bootTiming';
+import { ldGate, ldGateSummary, ldReportOnce, ldMark, ldTrace, ldReactProgress } from '../loaderDebug';
 import { initializeDataStorage } from '../crazygames/dataStorage';
 
 import * as cosmetics from '../game/cosmetics.json'
 import RewardsModal from './modals/RewardsModal';
-import ProfileModal from './modals/ProfileModal';
 import SkinPreviewModal from './modals/SkinPreviewModal';
 import FullChangelogModal from './modals/FullChangelogModal';
 import ClansModal from './modals/ClansModal';
@@ -63,11 +65,39 @@ import SupportButton from './support/SupportButton';
 import SupportModal from './support/SupportModal';
 import AnnouncementsButton from './announcements/AnnouncementsButton';
 import AnnouncementsModal from './announcements/AnnouncementsModal';
+import { designerUsername, getMockProfileData, getMockProfileGames } from './profileDesigner/mockProfile';
+import { ProfileTheme, resolveProfileTheme } from './profileTheme';
+import PromptDialog, { promptDialog, showDialog } from './PromptDialog';
+import { setHudThemeById } from '../hudTheme';
+
+const ProfileDesignerPanel = lazy(() => import('./profileDesigner/ProfileDesignerPanel'));
+
+// Pulls in chart.js (189KB of the main bundle) for a modal nobody has open at
+// boot. Lazy so it costs nothing until someone actually views a profile.
+// displayName matters: the modal render keys off type.displayName || type.name,
+// and a lazy() wrapper has neither by default.
+const ProfileModal = lazy(() => import('./modals/ProfileModal'));
+(ProfileModal as any).displayName = 'ProfileModal';
+
+function decodeCrazygamesUserId(token: string): string | null {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '=');
+    return JSON.parse(atob(base64)).userId || null;
+  } catch (error) {
+    console.warn('[CrazyGames] Could not inspect token payload; server verification will remain authoritative', error);
+    return null;
+  }
+}
 
 let debugMode = false;
 try {
   debugMode = window.location.search.includes("debugAlertMode");
   } catch(e) {}
+
+const isBasicLaunch = typeof window !== 'undefined' && !!(window as any)._isCrazyGamesBasicLaunch;
+const needsMenuAdUnmount = typeof window !== 'undefined' && (window as any).adProvider === 'adinplay';
 
 const modalClasses = new Map<any, string>([
   [ShopModal, 'modal-fullscreen'],
@@ -86,10 +116,10 @@ const modalClasses = new Map<any, string>([
 const instantSwapModals = new Set<any>([ShopModal, RewardsModal, InventoryModal, ProfileModal, FullChangelogModal]);
 const modalCloseMs = 200;
 
-function App({ moreAds = false }: { moreAds?: boolean }) {
-  useEffect(() => { if (moreAds) document.title = 'Swordbattle.io (more ads)'; }, [moreAds]);
+function App({ profileDesigner = false, hudDesigner = false }: { profileDesigner?: boolean; hudDesigner?: boolean }) {
+  (window as any).hudDesignerMode = hudDesigner;
   let { skins } = cosmetics;
-  const RESET_HOUR = 23; // 0-23 utc
+  const resetHour = 23; // 0-23 utc
 
   const dispatch = useDispatch();
   const account = useSelector(selectAccount);
@@ -97,15 +127,18 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
   const scale = useScale(false);
   const [name, setName] = useState('');
   const [gameStarted, setGameStarted] = useState(false);
+  const gameStartedRef = useRef(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [modal, setModal] = useState<any>(null);
   const [shownModal, setShownModal] = useState<any>(null);
   const [modalClosing, setModalClosing] = useState(false);
   const modalCloseTimer = useRef<any>(null);
-  const [profileUser, setProfileUser] = useState<string | null>(null);
+  const [profileUser, setProfileUser] = useState<string | null>(profileDesigner ? designerUsername : null);
   const [profileClosing, setProfileClosing] = useState(false);
   const profileTimer = useRef<any>(null);
-  const [previewSkinId, setPreviewSkinId] = useState<number | null>(null);
+  const [designerTheme, setDesignerTheme] = useState<ProfileTheme>(() => resolveProfileTheme(1));
+  const [designerThemeName, setDesignerThemeName] = useState('My Theme');
+  const [previewSkin, setPreviewSkin] = useState<{ id: number; viewOnly: boolean } | null>(null);
   const [previewClosing, setPreviewClosing] = useState(false);
   const previewTimer = useRef<any>(null);
   const [connectionError, setConnectionError] = useState<string>('');
@@ -116,17 +149,36 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
   const [isConnected, setIsConnected] = useState(false);
   const [accountReady, setAccountReady] = useState(false);
   const [assetsLoaded, setAssetsLoaded] = useState(false);
-  const [game, setGame] = useState<Phaser.Game | undefined>(window.phaser_game);
-  const [crazygamesAuthReady, setCrazygamesAuthReady] = useState(false);
+  const [game, setGame] = useState<Phaser.Game | undefined>(getGameRuntime());
+  const [crazygamesAuthReady, setCrazygamesAuthReadyRaw] = useState(false);
+  // 10 call sites flip this flag; wrap once so the winner names itself.
+  const setCrazygamesAuthReady = useCallback((v: boolean) => {
+    if (v) ldTrace('setCrazygamesAuthReady(true)');
+    setCrazygamesAuthReadyRaw(v);
+  }, []);
   const [showMenuTutorial, setShowMenuTutorial] = useState(false);
   const [isFirstVisit] = useState(() => !localStorage.getItem('swordbattle:hasVisited'));
-  const [instantStart, setInstantStart] = useState<boolean>((window as any).instantStart || false);
+  const [instantStart, setInstantStart] = useState<boolean>(hudDesigner || (window as any).instantStart || false);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   const [isMobileDevice] = useState(() =>
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     || (navigator.maxTouchPoints > 1 && /Macintosh|Mac OS/i.test(navigator.userAgent)));
 
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    document.body.classList.toggle('profile-designer-mode', profileDesigner);
+    document.body.classList.toggle('hud-designer-mode', hudDesigner);
+    return () => {
+      document.body.classList.remove('profile-designer-mode');
+      document.body.classList.remove('hud-designer-mode');
+    };
+  }, [profileDesigner, hudDesigner]);
+
+  useEffect(() => {
+    if (hudDesigner) return;
+    setHudThemeById(account?.hudThemes?.equipped || 1);
+  }, [hudDesigner, account?.hudThemes?.equipped]);
 
   // Detect if we're in a small desktop viewport (non-fullscreen windows, iframes, CrazyGames)
   const isSmallDesktopIframe = () => {
@@ -306,7 +358,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
           count = 0;
           const next = !Settings.unloadSkins;
           Settings.unloadSkins = next;
-          window.alert(next ? 'unloadSkins enabled' : 'unloadSkins disabled');
+          void showDialog(next ? 'Skin unloading enabled.' : 'Skin unloading disabled.', 'Settings');
         }
       } else {
         count = 0;
@@ -337,8 +389,10 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
       // Only handle initial login for non-CrazyGames environments
       // CrazyGames auth is handled separately in the other useEffect
 
-      const isPotentiallyCrazygames = typeof window !== 'undefined' &&
-                                      window.location.hostname.includes('crazygames');
+      const isPotentiallyCrazygames = typeof window !== 'undefined' && (
+        window.location.hostname.includes('crazygames') ||
+        new URLSearchParams(window.location.search).has('crazygames')
+      );
 
       const shouldUse = crazygamesSDK.shouldUseSDK();
       const isUserAvailable = crazygamesSDK.isUserAccountAvailable();
@@ -424,13 +478,26 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
 
   useEffect(() => {
     window.addEventListener('assetsLoadProgress', (e: any) => {
-      setLoadingProgress(Math.floor(e.detail * 98));
-      if(e.detail === 1) setAssetsLoaded(true);
+      const pct = Math.floor(e.detail * 98);
+      // Fires once per asset. Counts how many of those actually change the
+      // rendered number - the rest are wasted App re-renders.
+      ldReactProgress(pct);
+      // Game.ts re-dispatches detail:1 when the scene goes ready, which lands
+      // AFTER the gate has already set 100. Never walk the bar backwards or the
+      // loading screen reappears over a running game.
+      setLoadingProgress((p) => Math.max(p, pct));
+      if(e.detail === 1) { ldTrace('assetsLoaded=true'); setAssetsLoaded(true); }
     });
   }, []);
 
+  useEffect(() => {
+    if (!account?.isLoggedIn) return;
+    api.post(`${api.endpoint}/auth/set-more-ads`, { enabled: !isBasicLaunch && !!Settings.moreAds });
+  }, [account?.isLoggedIn, account?.username]);
+
 
   useEffect(() => {
+    gameStartedRef.current = gameStarted;
     if (gameStarted) {
       // prevent accidental exit
       window.onbeforeunload = function(e)
@@ -444,6 +511,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
     }
   }, [gameStarted]);
   const onGameReady = () => {
+    setConnectionError('');
     setIsConnected(true);
   };
 
@@ -455,9 +523,25 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
       alert('check. Connected: ' + isConnected + ' Assets: ' + assetsLoaded + ' CG Auth: ' + (crazygamesAuthReady || !isCrazygames));
     }
 
-    // Only set to 100% when all conditions are met
-    if(isConnected && assetsLoaded && (crazygamesAuthReady || !isCrazygames)) {
+    if (assetsLoaded) markOnce('gate:assetsLoaded');
+    if (isConnected) markOnce('gate:isConnected');
+    if (crazygamesAuthReady || !isCrazygames) markOnce('gate:crazygamesAuthReady');
+
+    // The play button is an AND of three independent legs - log each one as it
+    // lands so the last one to arrive is obvious.
+    if (assetsLoaded) ldGate('assetsLoaded');
+    if (isConnected) ldGate('isConnected');
+    if (crazygamesAuthReady || !isCrazygames) ldGate('crazygamesAuthReady');
+
+    if(assetsLoaded && isConnected && (crazygamesAuthReady || !isCrazygames)) {
+      markOnce('READY (loadingProgress=100)');
+      // Safety net: Game.create() normally closes this, but a scene that never
+      // boots would leave CrazyGames' loading timer running forever.
+      crazygamesSDK.loadingStop();
+      ldGateSummary();
       setLoadingProgress(100);
+      reportOnce();
+      ldReportOnce();
     }
   }, [isConnected, assetsLoaded, crazygamesAuthReady]);
 
@@ -489,7 +573,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             console.log('[CrazyGames] Current crazygamesUserId:', currentUserId);
 
             // Check if stored account belongs to same CrazyGames user
-            if (storedCrazygamesUserId === currentUserId) {
+            if (storedCrazygamesUserId === currentUserId || (!currentUserId && storedAccount.isCrazygames)) {
               console.log('[CrazyGames] CrazyGames user matches stored account - keeping login');
               // Update account in Redux to ensure it's current
               storedAccount.secret = existingSecret;
@@ -537,8 +621,8 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             if (token) {
               const tokenParts = token.split('.');
               if (tokenParts.length === 3) {
-                const payload = JSON.parse(atob(tokenParts[1]));
-                currentUserId = payload.userId;
+                currentUserId = decodeCrazygamesUserId(token) || undefined;
+                if (!currentUserId) currentUserId = 'serverVerified';
                 console.log('[CrazyGames] Decoded userId from token:', currentUserId);
               } else {
                 console.error('[CrazyGames] Invalid token format - expected 3 parts, got', tokenParts.length);
@@ -561,7 +645,9 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
         if (!currentUserId) {
           console.log('[CrazyGames] No CrazyGames user logged in');
 
-          if ((window as any).instantStart) {
+          // First-visit auto-start is meant to be frictionless, so only invite /
+          // instant-multiplayer sessions are worth interrupting for a login.
+          if ((window as any).instantStart && !(window as any)._cgFirstVisitAutoStart) {
             console.log('[CrazyGames] Instant multiplayer mode - prompting user to log in');
             try {
               const promptedUser = await crazygamesSDK.showAuthPrompt();
@@ -577,15 +663,9 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             }
           }
 
-          // If we have a secret, clear it since user is not logged in on CrazyGames
           if (hasValidSecret) {
-            console.log('[CrazyGames] Clearing secret as user is not logged in on CrazyGames');
-            try {
-              window.localStorage.removeItem('secret');
-              dispatch(clearAccount());
-            } catch (e) {
-              console.error('[CrazyGames] Error clearing secret:', e);
-            }
+            console.log('[CrazyGames] SDK user unavailable; preserving and restoring stored session');
+            await verifyStoredAccount(existingSecret, '');
           }
 
           setCrazygamesAuthReady(true);
@@ -608,26 +688,8 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             return;
           }
 
-          if (verifyResult === 'invalid') {
-            // Secret is invalid, clear it and log in with current user
-            try {
-              window.localStorage.removeItem('secret');
-              dispatch(clearAccount());
-            } catch (e) {
-              console.error('[CrazyGames] Error clearing invalid secret:', e);
-            }
-          }
-
-          // For both 'mismatch' and 'invalid', log in with current user
           if (verifyResult === 'mismatch') {
             console.log('[CrazyGames] Switching to current CrazyGames user account');
-            // Clear the old secret
-            try {
-              window.localStorage.removeItem('secret');
-              dispatch(clearAccount());
-            } catch (e) {
-              console.error('[CrazyGames] Error clearing old secret:', e);
-            }
           }
 
           // Login with the current user
@@ -659,34 +721,12 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
           return;
         }
 
-        // Decode JWT to get userId
-        let userId: string;
-        try {
-          const tokenParts = token.split('.');
-          console.log('[CrazyGames] Token parts count:', tokenParts.length);
-
-          if (tokenParts.length !== 3) {
-            console.error('[CrazyGames] Invalid token format - expected 3 parts, got', tokenParts.length);
-            return;
-          }
-
-          const payload = JSON.parse(atob(tokenParts[1]));
-          userId = payload.userId;
-          console.log('[CrazyGames] Decoded userId from token:', userId);
-        } catch (error) {
-          console.error('[CrazyGames] Failed to decode token:', error);
-          return;
-        }
-
         console.log('[CrazyGames] Sending login request to', `${api.endpoint}/auth/crazygames/login`);
-        console.log('[CrazyGames] Login request payload:', { userId, username: currentUser.username });
 
         // Return a promise that resolves when the login is complete
         return new Promise<void>((resolve) => {
           api.post(`${api.endpoint}/auth/crazygames/login`, {
             token,
-            userId,
-            username: currentUser.username,
           }, (data: any) => {
             console.log('[CrazyGames] Login API callback received with data:', data);
 
@@ -751,6 +791,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
           if (sdkGame.isInstantMultiplayer === true) {
             console.log('[CrazyGames] isInstantMultiplayer is TRUE');
             (window as any).instantStart = true;
+            (window as any)._cgFirstVisitAutoStart = false;
             setInstantStart(true);
           }
           const roomId = sdkGame.getInviteParam?.('roomId');
@@ -760,8 +801,10 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             const region = sdkGame.getInviteParam?.('region');
             if (region) (window as any).inviteRegion = region;
             (window as any).instantStart = true;
+            (window as any)._cgFirstVisitAutoStart = false;
             setInstantStart(true);
           }
+          if (applyCrazygamesFirstVisitAutoStart()) setInstantStart(true);
         } catch (error) {
           console.error('[CrazyGames] Error checking multiplayer:', error);
         }
@@ -783,6 +826,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
           if (sdkGame.isInstantMultiplayer === true) {
             console.log('[CrazyGames] isInstantMultiplayer is TRUE (late detection)');
             (window as any).instantStart = true;
+            (window as any)._cgFirstVisitAutoStart = false;
             setInstantStart(true);
           }
           const roomId = sdkGame.getInviteParam?.('roomId');
@@ -791,8 +835,10 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             const region = sdkGame.getInviteParam?.('region');
             if (region) (window as any).inviteRegion = region;
             (window as any).instantStart = true;
+            (window as any)._cgFirstVisitAutoStart = false;
             setInstantStart(true);
           }
+          if (applyCrazygamesFirstVisitAutoStart()) setInstantStart(true);
         } catch (e) {
           console.error('[CrazyGames] Error checking multiplayer (late):', e);
         }
@@ -801,10 +847,11 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
       };
       window.addEventListener('crazygamesSDKReady', onSdkReady, { once: true });
 
-      console.log('[CrazyGames] Calling attemptCrazygamesLogin with delay');
-      setTimeout(() => {
-        attemptCrazygamesLogin();
-      }, 500);
+      // No delay: a late SDK is already covered by the crazygamesSDKReady
+      // listener above, and with no SDK this returns immediately. The old 500ms
+      // sleep just held the crazygamesAuthReady gate shut for half a second.
+      console.log('[CrazyGames] Calling attemptCrazygamesLogin');
+      attemptCrazygamesLogin();
     }
 
     // Monitor CrazyGames user account changes (login/logout)
@@ -814,19 +861,15 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
       let isProcessingChange = false;
 
       const checkUserAccountChange = async () => {
+        if (gameStartedRef.current || document.hidden || isProcessingChange) return;
+        isProcessingChange = true;
         try {
           const user = await crazygamesSDK.getUser().catch(() => null);
-          const currentUserId = user?.userId || null;
-          const existingSecret = window.localStorage.getItem('secret');
-          const hasValidSecret = existingSecret && existingSecret !== 'undefined' && existingSecret !== 'null';
-
-          console.log('[CrazyGames Monitor] Check:', {
-            currentUserId,
-            previousUserId,
-            hasSecret: hasValidSecret,
-            isInitialized,
-            isProcessing: isProcessingChange
-          });
+          if (!user || gameStartedRef.current || document.hidden) return;
+          const token = await crazygamesSDK.getUserToken().catch(() => null);
+          if (gameStartedRef.current || document.hidden) return;
+          const currentUserId = token ? decodeCrazygamesUserId(token) : null;
+          if (!currentUserId) return;
 
           // First time - just initialize
           if (!isInitialized) {
@@ -836,84 +879,45 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             return;
           }
 
-          // Prevent multiple simultaneous change processing
-          if (isProcessingChange) {
-            console.log('[CrazyGames Monitor] Already processing a change, skipping');
-            return;
-          }
-
-          // User logged out (was logged in, now logged out)
-          if (previousUserId && !currentUserId) {
-            console.log('[CrazyGames Monitor] User logged out - clearing account');
-
-            // Clear stored secret
-            if (hasValidSecret) {
-              try {
-                window.localStorage.removeItem('secret');
-                console.log('[CrazyGames Monitor] Secret cleared from localStorage');
-              } catch (e) {
-                console.error('[CrazyGames Monitor] Error clearing secret:', e);
-              }
-            }
-
-            // Clear account from Redux store
-            dispatch(clearAccount());
-
-            previousUserId = null;
-          }
-          // User logged in (was logged out, now logged in)
-          else if (!previousUserId && currentUserId) {
-            console.log('[CrazyGames Monitor] User logged in - reloading page to apply authentication');
-
-            window.onbeforeunload = null;
-
-            window.location.reload();
-
+          if (!previousUserId && currentUserId) {
+            if (gameStartedRef.current) return;
+            await loginWithCurrentCrazygamesUser(user);
             previousUserId = currentUserId;
           }
           // User changed account (different userId)
           else if (previousUserId && currentUserId && previousUserId !== currentUserId) {
             console.log('[CrazyGames Monitor] User account changed - reloading page to switch accounts');
 
-            // Clear old secret
-            if (hasValidSecret) {
-              try {
-                window.localStorage.removeItem('secret');
-              } catch (e) {
-                console.error('[CrazyGames Monitor] Error clearing secret:', e);
-              }
-            }
-
-            window.onbeforeunload = null;
-
-            window.location.reload();
-
+            if (gameStartedRef.current) return;
+            await loginWithCurrentCrazygamesUser(user);
             previousUserId = currentUserId;
-          }
-          // Secret exists but no user - clear it
-          else if (!currentUserId && hasValidSecret) {
-            console.log('[CrazyGames Monitor] No user but secret exists - clearing secret');
-            try {
-              window.localStorage.removeItem('secret');
-              dispatch(clearAccount());
-            } catch (e) {
-              console.error('[CrazyGames Monitor] Error clearing secret:', e);
-            }
           }
 
           previousUserId = currentUserId;
         } catch (error) {
           console.error('[CrazyGames Monitor] Error checking user account change:', error);
+        } finally {
+          isProcessingChange = false;
         }
       };
 
-      // Check every 2 seconds
-      const intervalId = setInterval(checkUserAccountChange, 2000);
+      const checkOnFocus = () => { void checkUserAccountChange(); };
+      const checkOnVisibility = () => {
+        if (!document.hidden) void checkUserAccountChange();
+      };
+      const intervalId = setInterval(checkUserAccountChange, 60000);
 
       // Initial check after a short delay to let SDK fully initialize
-      setTimeout(checkUserAccountChange, 100);
+      const initialCheckId = setTimeout(checkUserAccountChange, 100);
+      window.addEventListener('focus', checkOnFocus);
+      document.addEventListener('visibilitychange', checkOnVisibility);
 
-      return () => clearInterval(intervalId);
+      return () => {
+        clearInterval(intervalId);
+        clearTimeout(initialCheckId);
+        window.removeEventListener('focus', checkOnFocus);
+        document.removeEventListener('visibilitychange', checkOnVisibility);
+      };
     }
   }, [dispatch]);
 
@@ -976,7 +980,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
     console.log('Starting game');
     localStorage.setItem('swordbattle:hasVisited', '1');
     if(!isConnected) {
-      alert('Not connected yet');
+      void showDialog('Still connecting to a server.', 'Connection');
       return;
     }
     else  {
@@ -984,7 +988,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
       const go = () => {
         setPendingRespawn(null);
         setGameStarted(true);
-        window.phaser_game?.events.emit('startGame', name);
+        game?.events.emit('startGame', name);
       }
       // playVideoAd().then(() => {
       //   go();
@@ -1053,6 +1057,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
   };
   const onConnectionClosed = (reason: string) => {
     console.log('Connection closed', reason);
+    setIsConnected(false);
     setConnectionError(reason);
   }
 
@@ -1060,14 +1065,36 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
   const onLogin = () => setModal(<LoginModal onSuccess={onSucessAuth} onSupport={openSupport} />);
   const onSignup = () => setModal(<SignupModal onSuccess={onSucessAuth} />);
   const onLogout = () => dispatch(logoutAsync() as any);
-  const onChangeName = () => {
-    const newName = prompt('What do you want to change your name to? Please note that you can only change your name once every 7 days.');
+  const onChangeName = async () => {
+    const newName = await promptDialog({
+      title: 'Change Name',
+      message: 'You can change your name once every 7 days.',
+      placeholder: 'New name',
+      maxLength: 20,
+      confirmLabel: 'Save',
+      validateOnChange: true,
+      validate: (value) => new Promise((resolve) => {
+        if (!value) { resolve('Enter a name.'); return; }
+        api.get(`${api.endpoint}/auth/username-available?username=${encodeURIComponent(value)}`, (data: any) => {
+          resolve(data?.available ? null : (data?.reason || 'Username is taken'));
+        });
+      }),
+    });
     if (!newName) return;
 
     dispatch(changeNameAsync(newName) as any);
   }
-  const onChangeBio = () => {
-    const newBio = prompt('What do you want your bio to be? You can change it whenever you want, but it can only be up to 100 characters long.');
+  const onChangeBio = async () => {
+    const newBio = await promptDialog({
+      title: 'Change Bio',
+      message: 'Your bio can be up to 100 characters.',
+      placeholder: 'Bio',
+      initialValue: account.bio || '',
+      maxLength: 100,
+      multiline: true,
+      confirmLabel: 'Save',
+      validate: (value) => value ? null : 'Enter a bio.',
+    });
     if (!newBio) return;
 
     dispatch(changeBioAsync(newBio) as any);
@@ -1084,15 +1111,15 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
     profileTimer.current = setTimeout(() => { setProfileUser(null); setProfileClosing(false); }, 220);
   };
 
-  const openSkinPreview = (id: number) => {
+  const openSkinPreview = (id: number, viewOnly = false) => {
     clearTimeout(previewTimer.current);
-    setPreviewSkinId(id);
+    setPreviewSkin({ id, viewOnly });
     setPreviewClosing(false);
   };
   const closeSkinPreview = () => {
     clearTimeout(previewTimer.current);
     setPreviewClosing(true);
-    previewTimer.current = setTimeout(() => { setPreviewSkinId(null); setPreviewClosing(false); }, 220);
+    previewTimer.current = setTimeout(() => { setPreviewSkin(null); setPreviewClosing(false); }, 220);
   };
 
   const openHub = (tab: HubTab) => {
@@ -1184,7 +1211,11 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
   const isLoaded = loadingProgress === 100;
   return (
     <div className="App">
-      <LoadingScreen progress={loadingProgress} instantStart={instantStart} />
+      <LoadingScreen
+        progress={loadingProgress}
+        instantStart={instantStart}
+        connectionError={connectionError}
+      />
       <GameComponent
         onHome={onHome}
         onGameReady={onGameReady}
@@ -1195,7 +1226,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
         setGame={setGame}
         openLeaderboard={openLeaderboard}
         onPendingRespawn={(info: any) => setPendingRespawn(info)}
-        moreAds={moreAds}
+        hudDesigner={hudDesigner}
       />
       {connectionError && (
         <Modal
@@ -1281,9 +1312,9 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
     left: '50%',
     transform: 'translate(-50%, -25%)' }} >
               <div className="menu">
-                {crazygamesSDK.shouldUseSDK() && !account?.secret ? (
+                {(crazygamesSDK.shouldUseSDK() || isBasicLaunch) && !account?.secret ? (
                   <div className="accountCard menuCard panel">
-                    <LeaderboardCard onViewLeaderboard={openLeaderboard} />
+                    <LeaderboardCard />
                   </div>
                 ) : (
                   <div className="accountCard menuCard panel">
@@ -1336,8 +1367,9 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
 
                     <div id="enterGame" className={`menuButton${isFirstVisit ? ' first-visit' : ''}`} onClick={() => {
                         if (accountReady && isConnected) {
-                          if (account.isLoggedIn && account.username.startsWith(".")) {alert(
-                            "Your account has been temporarily suspended due to violations of the game's rules. This restriction will be lifted soon. Please log out to play with a different account."
+                          if (account.isLoggedIn && account.username.startsWith(".")) { void showDialog(
+                            "Your account has been temporarily suspended due to violations of the game's rules. This restriction will be lifted soon. Please log out to play with a different account.",
+                            'Account suspended'
                             ); return; } (window as any)._wasInstantStart = false; onStart(); }}}>
                         {(accountReady && isConnected) ? 'Play!' : 'Connecting...'}
                     </div>
@@ -1347,7 +1379,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
                   <ChangelogCard onViewChangelog={(id: number) => openAnnouncements(id)}/>
                 </div>
               </div>
-              <div
+              {/* <div
                 className="panel tipCard"
                 style={{
                   overflow: 'hidden',
@@ -1365,12 +1397,13 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
                 title={randomMessage}
               >
                 {randomMessage}
-                {/* Due to a bug duplicating Snowtokens earned multiple times, some winter skins may have been refunded. Sorry for the inconvenience. */}
-              </div>
+              </div> */}
               <br />
               <div className='fullWidth'>
                 <div id="adBelow">
-                 <Ad screenW={dimensions.width} screenH={dimensions.height} types={[[728, 90], [970, 90], [970, 250]]} placement="main_menu" adblockPromo />
+                 {(!needsMenuAdUnmount || (!shownModal && !profileUser && !previewSkin)) && (
+                   <Ad screenW={dimensions.width} screenH={dimensions.height} types={[[728, 90], [970, 90], [970, 250]]} placement="main_menu" adblockPromo />
+                 )}
                 </div>
               </div>
             </div>
@@ -1392,23 +1425,44 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
             <img src={DiscordLogo} width={60} alt="Discord" />
           </a>
           </div>
-          {shownModal && (() => { const cls = modalClasses.get(shownModal.type) ?? ''; const isFullscreen = cls === 'modal-fullscreen'; const isSettings = cls === 'modal-settings'; return <Modal key={shownModal.type.displayName || shownModal.type.name} child={shownModal} requestClose={closeModal} scaleDisabled={!!cls} className={cls} backdrop={!!cls && !isFullscreen} backdropClass={isSettings ? 'modal-backdrop-clear' : ''} closing={modalClosing} />; })()}
+          {shownModal && (() => { const cls = modalClasses.get(shownModal.type) ?? ''; const isFullscreen = cls === 'modal-fullscreen'; const isSettings = cls === 'modal-settings'; return <Suspense fallback={null}><Modal key={shownModal.type.displayName || shownModal.type.name} child={shownModal} requestClose={closeModal} scaleDisabled={!!cls} className={cls} backdrop={!!cls && !isFullscreen} backdropClass={isSettings ? 'modal-backdrop-clear' : ''} closing={modalClosing} /></Suspense>; })()}
           {profileUser && (
+            <Suspense fallback={null}>
             <Modal
               key="profile-overlay"
-              child={<ProfileModal username={profileUser} isOwnProfile={account.isLoggedIn && profileUser === account.username} onOpenClan={(clanId: number) => { closeProfileOverlay(); setModal(<ClansModal account={account} onViewProfile={openProfileOverlay} initialClanId={clanId} />); }} />}
-              requestClose={closeProfileOverlay}
+              child={<ProfileModal
+                username={profileUser}
+                isOwnProfile={account.isLoggedIn && profileUser === account.username}
+                onOpenClan={profileDesigner ? undefined : (clanId: number) => { closeProfileOverlay(); setModal(<ClansModal account={account} onViewProfile={openProfileOverlay} initialClanId={clanId} />); }}
+                mockData={profileDesigner ? getMockProfileData() : undefined}
+                mockGames={profileDesigner ? getMockProfileGames() : undefined}
+                themeOverride={profileDesigner ? designerTheme : undefined}
+                themeNameOverride={profileDesigner ? designerThemeName : undefined}
+              />}
+              requestClose={profileDesigner ? undefined : closeProfileOverlay}
               className="modal-profile"
               backdropClass="modal-backdrop-top"
               scaleDisabled
               backdrop
               closing={profileClosing}
             />
+            </Suspense>
           )}
-          {previewSkinId !== null && createPortal(
+          {profileDesigner && createPortal(
+            <Suspense fallback={null}>
+              <ProfileDesignerPanel
+                theme={designerTheme}
+                onChange={setDesignerTheme}
+                displayName={designerThemeName}
+                onDisplayNameChange={setDesignerThemeName}
+              />
+            </Suspense>,
+            document.body,
+          )}
+          {previewSkin !== null && createPortal(
             <Modal
               key="skinpreview-overlay"
-              child={<SkinPreviewModal skinId={previewSkinId} />}
+              child={<SkinPreviewModal skinId={previewSkin.id} viewOnly={previewSkin.viewOnly} />}
               requestClose={closeSkinPreview}
               className="modal-skinpreview"
               backdropClass="modal-backdrop-top"
@@ -1482,6 +1536,7 @@ function App({ moreAds = false }: { moreAds?: boolean }) {
 
         </>
       )}
+    <PromptDialog />
     </div>
   );
 }

@@ -1,4 +1,6 @@
-import { Application, utils, Rectangle, TextMetrics } from 'pixi.js';
+import { Application, GC_MODES, utils, Rectangle, TextMetrics, Sprite as PixiSprite, Texture as PixiTexture } from 'pixi.js-legacy';
+import { screenEffectsRuntime } from '../../effects/screenEffectsState';
+import { detectWebGLQuality } from './webglQuality';
 import { Container } from '../display';
 import { perfCounters } from '../display/Graphics';
 import { TimeStep } from './TimeStep';
@@ -6,6 +8,15 @@ import { ScaleManager } from './ScaleManager';
 import { Device } from './Device';
 import { SceneManager } from './SceneManager';
 import { ScreenFilter } from '../effects/ScreenFilter';
+
+function rendererOverride(): 'webgl' | 'canvas' | null {
+  try {
+    const v = (new URLSearchParams(window.location.search).get('renderer') || '').toLowerCase();
+    if (v === 'canvas') return 'canvas';
+    if (v === 'webgl') return 'webgl';
+  } catch (e) {}
+  return null;
+}
 
 export class Game {
   app: Application;
@@ -29,31 +40,78 @@ export class Game {
   private fxNeutralFrames = 999;
 
   private failed = false;
+  isCanvasMode = false;
+  private destroyed = false;
+  private onContextLost: ((e: Event) => void) | null = null;
+  private onContextRestored: (() => void) | null = null;
 
   constructor(config: any) {
     this.config = config || {};
     this.antialias = this.config.antialias !== false;
-    (window as any).phaser_game = this;
 
-    let app: Application;
+    let compatRequested = false;
+    let compatReason = '';
+    const override = rendererOverride();
+    let canvasThisSession = false;
     try {
-      app = new Application({
-        width: 1,
-        height: 1,
-        backgroundColor: 0x000000,
-        backgroundAlpha: 1,
-        antialias: this.antialias,
-        powerPreference: this.config.powerPreference || 'default',
-        resolution: 1,
-        autoDensity: false,
-        autoStart: false,
-        eventMode: 'passive',
-      });
-    } catch (e) {
-      this.initFailed(e);
-      return;
+      canvasThisSession = sessionStorage.getItem('swordbattle:canvasFallbackV4') === '1';
+      if (canvasThisSession) sessionStorage.removeItem('swordbattle:canvasFallbackV4');
+    } catch (e) {}
+    try {
+      if (override === 'canvas') {
+        compatRequested = true;
+        compatReason = '?renderer=canvas override';
+      } else if (override !== 'webgl' && canvasThisSession) {
+        compatRequested = true; compatReason = 'WebGL failed in this session';
+      } else if (override !== 'webgl' && detectWebGLQuality() === 'none') {
+        compatRequested = true; compatReason = 'no WebGL available';
+      }
+    } catch (e) {}
+    if (compatRequested) console.log('[PixiGame] compatibility (canvas) mode selected:', compatReason);
+
+    const baseOpts = {
+      width: 1,
+      height: 1,
+      backgroundColor: 0x000000,
+      backgroundAlpha: 1,
+      antialias: this.antialias,
+      powerPreference: this.config.powerPreference || 'default',
+      resolution: 1,
+      autoDensity: false,
+      autoStart: false,
+      eventMode: 'passive',
+    };
+
+    let app: Application | null = null;
+    if (!compatRequested) {
+      const attempts: any[] = [
+        baseOpts,
+        { ...baseOpts, antialias: false },
+        { ...baseOpts, antialias: false, powerPreference: 'default', premultipliedAlpha: false },
+        { ...baseOpts, antialias: false, powerPreference: 'low-power', backgroundAlpha: 1, preserveDrawingBuffer: false },
+      ];
+      for (let i = 0; i < attempts.length && !app; i++) {
+        try {
+          app = new Application(attempts[i]);
+          if (i > 0) console.warn(`[PixiGame] WebGL started on fallback attempt ${i + 1}`);
+        } catch (e) {
+          console.error(`[PixiGame] WebGL init attempt ${i + 1}/${attempts.length} failed:`, e);
+        }
+      }
+    }
+    if (!app) {
+      try {
+        app = new Application({ ...baseOpts, forceCanvas: true } as any);
+      } catch (e) {
+        this.initFailed(e);
+        return;
+      }
     }
     this.app = app;
+    this.isCanvasMode = !(this.app.renderer as any).gl;
+    const textureGC = (this.app.renderer as any).textureGC;
+    if (textureGC) textureGC.mode = GC_MODES.MANUAL;
+    if (this.isCanvasMode) console.log('[PixiGame] running in compatibility (canvas) mode');
     this.canvas = this.app.view as unknown as HTMLCanvasElement;
 
     const parent = typeof this.config.parent === 'string'
@@ -61,12 +119,21 @@ export class Game {
       : this.config.parent;
     if (parent && this.canvas) parent.appendChild(this.canvas);
 
-    if (this.canvas) {
-      this.canvas.addEventListener('webglcontextlost', () => {
+    if (this.canvas && !this.isCanvasMode) {
+      this.onContextLost = (e: Event) => {
+        if (this.destroyed) return;
+        try { e.preventDefault(); } catch (err) {}
+        if ((window as any).videoAdActive) return;
         this.showFatalOverlay('Graphics interrupted',
-          "The game's graphics were interrupted (this can happen when your GPU is briefly overloaded), reload to keep playing");
-      }, false);
-      this.canvas.addEventListener('webglcontextrestored', () => this.removeFatalOverlay(), false);
+          "The game's graphics were interrupted (this can happen when your GPU is briefly overloaded), reload to keep playing",
+          true);
+      };
+      this.onContextRestored = () => {
+        if (this.destroyed) return;
+        this.removeFatalOverlay();
+      };
+      this.canvas.addEventListener('webglcontextlost', this.onContextLost, false);
+      this.canvas.addEventListener('webglcontextrestored', this.onContextRestored, false);
     }
 
     this.worldRoot = new Container(); this.worldRoot.sortableChildren = true;
@@ -83,7 +150,7 @@ export class Game {
     try { (this.app.renderer as any).events.setTargetElement((this.app.view as any)); } catch (e) { /* noop */ }
 
     this.renderer = {
-      type: 2,
+      type: this.isCanvasMode ? 1 : 2,
       pipelines: {
         getPostPipeline: () => null,
         addPostPipeline: () => {},
@@ -102,9 +169,9 @@ export class Game {
   private initFailed(e: any): void {
     this.failed = true;
     console.error(
-      '[PixiGame] Could not create a WebGL renderer for ?pixi. If this happened right after a crash '
-      + 'or a "WebGL context lost" message, your browser GPU process is exhausted — RESTART THE BROWSER '
-      + 'to recover it. (?pixi requires WebGL; remove ?pixi to use the normal build.)', e);
+      '[PixiGame] Could not create a renderer (WebGL and canvas both failed). If this happened right '
+      + 'after a crash or a "WebGL context lost" message, your browser GPU process is exhausted. '
+      + 'RESTART THE BROWSER to recover it.', e);
     this.showFatalOverlay("Couldn't start the game",
       "Your browser couldn't start the game's graphics. Try reloading. If it keeps happening, close other "
       + 'tabs or apps using heavy graphics, or fully restart your browser.');
@@ -118,7 +185,19 @@ export class Game {
     this.scale = { resize() {}, setZoom() {}, width: 0, height: 0 } as any;
   }
 
-  private showFatalOverlay(title: string, message: string): void {
+  static switchToCanvasAndReload(): void {
+    try { sessionStorage.setItem('swordbattle:canvasFallbackV4', '1'); } catch (e) {}
+    try { (window as any).onbeforeunload = null; } catch (e) { /* noop */ }
+    try { window.location.reload(); } catch (e) { /* noop */ }
+  }
+
+  runTextureGC(): void {
+    const textureGC = (this.app?.renderer as any)?.textureGC;
+    if (!textureGC) return;
+    try { textureGC.run(); } catch (e) {}
+  }
+
+  private showFatalOverlay(title: string, message: string, offerCompatMode = false): void {
     if (typeof document === 'undefined' || document.getElementById('pixi-fatal-overlay')) return;
     const o = document.createElement('div');
     o.id = 'pixi-fatal-overlay';
@@ -139,6 +218,14 @@ export class Game {
       + 'border:3px solid #000;border-radius:10px;padding:10px 28px;cursor:pointer;';
     btn.onclick = () => { try { window.onbeforeunload = null; window.location.reload(); } catch (e) { /* noop */ } };
     box.appendChild(h); box.appendChild(p); box.appendChild(btn);
+    if (offerCompatMode) {
+      const compat = document.createElement('button');
+      compat.textContent = 'Switch to compatibility mode';
+      compat.style.cssText = 'display:block;margin:14px auto 0;font:inherit;font-size:14px;font-weight:700;'
+        + 'color:#cfcfd6;background:transparent;border:2px solid #555;border-radius:8px;padding:8px 18px;cursor:pointer;';
+      compat.onclick = () => { Game.switchToCanvasAndReload(); };
+      box.appendChild(compat);
+    }
     o.appendChild(box);
     document.body.appendChild(o);
   }
@@ -153,7 +240,38 @@ export class Game {
     try { (this.app.renderer as any).background.color = color; } catch (e) { /* noop */ }
   }
 
+  private blindOverlay: PixiSprite | null = null;
+  private ensureBlindOverlay(): PixiSprite {
+    if (this.blindOverlay) return this.blindOverlay;
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const ctx = c.getContext('2d')!;
+    const g = ctx.createRadialGradient(128, 128, 40, 128, 128, 150);
+    g.addColorStop(0, 'rgba(0,0,0,0.28)');
+    g.addColorStop(1, 'rgba(0,0,0,0.72)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 256, 256);
+    const spr = new PixiSprite(PixiTexture.from(c));
+    spr.visible = false;
+    this.app.stage.addChildAt(spr, this.app.stage.getChildIndex(this.hudRoot as any));
+    this.blindOverlay = spr;
+    return spr;
+  }
+
+  private updateCanvasBlind(): void {
+    const b = screenEffectsRuntime.blind || 0;
+    if (b <= 0.001 && !this.blindOverlay) return;
+    const o = this.ensureBlindOverlay();
+    o.visible = b > 0.001;
+    if (o.visible) {
+      o.alpha = b;
+      o.width = this.app.renderer.width;
+      o.height = this.app.renderer.height;
+    }
+  }
+
   setScreenEffects(on: boolean): void {
+    if (this.isCanvasMode) return;
     if (on === this.fxOn) return;
     this.fxOn = on;
     if (on && !this.screenFilter) {
@@ -178,7 +296,7 @@ export class Game {
           new Promise((res) => setTimeout(res, 2500)),
         ]);
       }
-    } catch (e) { /* noop */ }
+    } catch (e) {}
     try { TextMetrics.clearMetrics(); } catch (e) { /* noop */ }
 
     try {
@@ -190,7 +308,7 @@ export class Game {
       console.error('[PixiGame] scene boot error:', err);
     }
 
-    this.loop.start((time: number, delta: number) => this._step(time, delta));
+    this.loop.start((time: number, delta: number) => this.step(time, delta));
   }
 
   private loggedErrors = new Set<string>();
@@ -208,7 +326,7 @@ export class Game {
 
   private cullMargin = 600;
   private cullFrame = 0;
-  private _cull(scene: any): void {
+  private cull(scene: any): void {
     const cam = scene.cameras && scene.cameras.main;
     if (!cam || !cam.worldView) return;
     const wv = cam.worldView;
@@ -219,6 +337,9 @@ export class Game {
     const frame = this.cullFrame++;
     for (let i = 0, n = kids.length; i < n; i++) {
       const c = kids[i];
+      if (c.visible === false) {
+        continue;
+      }
       if (c._cullR === undefined || ((frame + i) % 90) === 0) {
         let r = 0;
         try {
@@ -236,7 +357,7 @@ export class Game {
     }
   }
 
-  private _step(time: number, delta: number): void {
+  private step(time: number, delta: number): void {
     const scene = this.scene.getMain();
     const perf = this.perfEnabled;
     if (perf) { perfCounters.genTex = 0; perfCounters.genTexPooled = 0; }
@@ -254,7 +375,10 @@ export class Game {
     }
     const t2 = perf ? performance.now() : 0;
     try { scene.cameras.main.preRender(delta); } catch (e) { this.logOnce('[PixiGame] camera error:', e); }
-    try { this._cull(scene); } catch (e) { this.logOnce('[PixiGame] cull error:', e); }
+    try { this.cull(scene); } catch (e) { this.logOnce('[PixiGame] cull error:', e); }
+    if (this.isCanvasMode) {
+      try { this.updateCanvasBlind(); } catch (e) { this.logOnce('[PixiGame] blind overlay error:', e); }
+    }
     if (this.fxOn && this.screenFilter) {
       try {
         const rw = this.app.renderer.width, rh = this.app.renderer.height;
@@ -292,7 +416,15 @@ export class Game {
   }
 
   destroy(removeCanvas: boolean): void {
-    if (this.failed) { if ((window as any).phaser_game === this) (window as any).phaser_game = null; return; }
+    this.destroyed = true;
+    try {
+      if (this.canvas && this.onContextLost) this.canvas.removeEventListener('webglcontextlost', this.onContextLost, false);
+      if (this.canvas && this.onContextRestored) this.canvas.removeEventListener('webglcontextrestored', this.onContextRestored, false);
+    } catch (e) {}
+    this.onContextLost = null;
+    this.onContextRestored = null;
+
+    if (this.failed) return;
     try { this.loop.destroy(); } catch (e) { /* noop */ }
     try {
       const scene = this.scene.getMain();
@@ -301,6 +433,5 @@ export class Game {
       if (scene && scene.sound && typeof scene.sound.destroy === 'function') scene.sound.destroy();
     } catch (e) { /* noop */ }
     try { this.app.destroy(removeCanvas, { children: true, texture: false, baseTexture: false }); } catch (e) { /* noop */ }
-    if ((window as any).phaser_game === this) (window as any).phaser_game = null;
   }
 }

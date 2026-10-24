@@ -6,13 +6,22 @@
 let hasAdblock = false;
 let adblockChecked = false;
 
-export function isAdScriptBlocked(): boolean {
+export function isAdScriptBlocked(providerOverride?: string): boolean {
   const w = window as any;
   if (w._isCrazyGamesBasicLaunch) return false;
-  const provider = w.adProvider || 'adinplay';
-  return provider === 'adinplay' && !!w.aiptag
-    && typeof w.aipDisplayTag === 'undefined'
-    && typeof w.aipPlayer === 'undefined';
+  const provider = providerOverride || w.adProvider || 'adsense';
+  if (provider === 'adsense') {
+    if (w.adsenseFailed === true) return true;
+    const startedAt = w.adsenseStartedAt || 0;
+    if (!startedAt || Date.now() - startedAt < 5000) return false;
+    return w.adsbygoogle?.loaded !== true;
+  }
+  if (provider !== 'adinplay') return false;
+  if (w.adinplayFailed === true) return true;
+  if (w.adinplayLoading === true) return false;
+  const startedAt = w.adinplayStartedAt || 0;
+  if (!startedAt || Date.now() - startedAt < 5000) return false;
+  return typeof w.aipDisplayTag === 'undefined' && typeof w.aipPlayer === 'undefined';
 }
 
 function baitBlocked(): Promise<boolean> {
@@ -47,7 +56,7 @@ async function runCheck() {
 
 export async function detectAdblock(): Promise<boolean> {
   await runCheck();
-  for (const delay of [3500, 8000, 15000]) setTimeout(runCheck, delay);
+  for (const delay of [3500, 6000, 8000, 15000]) setTimeout(runCheck, delay);
   return hasAdblock;
 }
 

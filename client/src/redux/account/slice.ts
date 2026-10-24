@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api';
+import { showDialog } from '../../ui/PromptDialog';
+import { getGameRuntime } from '../../game/gameRuntime';
 
 export type ClanSummary = {
   id: number;
@@ -44,6 +46,8 @@ export type AccountState = {
   xp: number;
   recovered: boolean;
   profiles: { equipped: number; owned: number[] };
+  themes: { equipped: number; owned: number[] };
+  hudThemes: { equipped: number; owned: number[] };
   bio: string;
   tags: { tags: string[]; colors: string[] };
   isCrazygames: boolean;
@@ -75,6 +79,8 @@ const initialState: AccountState = {
   xp: 0,
   recovered: false,
   profiles: { equipped: 1, owned: [1] },
+  themes: { equipped: 1, owned: [1] },
+  hudThemes: { equipped: 1, owned: [1] },
   bio: '',
   tags: { tags: [], colors: [] },
   isCrazygames: false,
@@ -113,12 +119,12 @@ export const updateAccountAsync = createAsyncThunk(
     const state: any = getState();
     api.post(`${api.endpoint}/profile/getPrivateUserInfo`, {}, (response: any) => {
     if (response.error) {
-      alert(response.error);
+      void showDialog(response.error, 'Account');
       reject(response.error);
     } else if (response.account) {
       response.account.secret = state.account.secret;
       dispatch(setAccount(response.account));
-      window.phaser_game?.events.emit('tokenUpdate', state.account.secret);
+      getGameRuntime()?.events.emit('tokenUpdate', state.account.secret);
       resolve(response.account);
     }
   }, state.account.secret);
@@ -136,9 +142,9 @@ export const changeNameAsync = createAsyncThunk(
       });
 
       if (response.error) {
-        alert(response.error);
+        await showDialog(response.error, 'Change Name');
       } else if (response.success) {
-        alert('Username changed successfully');
+        await showDialog('Username changed successfully.', 'Change Name');
         // Dispatching actions to update name and token in the state
         dispatch(setName(newUsername));
         dispatch(setSecret(response.secret));
@@ -146,7 +152,7 @@ export const changeNameAsync = createAsyncThunk(
     } catch (error) {
       // Handle any other errors, such as network issues
       console.error(error);
-      alert('An error occurred while changing the name.');
+      await showDialog('Could not change your name.', 'Change Name');
     }
   }
 );
@@ -161,9 +167,9 @@ export const changeBioAsync = createAsyncThunk(
       });
 
       if (response.error) {
-        alert(response.error);
+        await showDialog(response.error, 'Change Bio');
       } else if (response.success) {
-        alert('Bio changed successfully');
+        await showDialog('Bio changed successfully.', 'Change Bio');
         // Dispatching actions to update bio and token in the state
         dispatch(setBio(newUserbio));
         dispatch(setSecret(response.secret));
@@ -171,7 +177,7 @@ export const changeBioAsync = createAsyncThunk(
     } catch (error) {
       // Handle any other errors, such as network issues
       console.error(error);
-      alert('An error occurred while changing your bio.');
+      await showDialog('Could not change your bio.', 'Change Bio');
     }
   }
 );
@@ -184,7 +190,7 @@ export const claimDailyLoginAsync = createAsyncThunk(
       const response = await api.postAsync(`${api.endpoint}/auth/claim-daily-login?now=${Date.now()}`, count ? { count } : {});
 
       if (response.error) {
-        alert(response.error);
+        await showDialog(response.error, 'Daily Rewards');
       } else if (response.success) {
         const currentAccount = state.account;
         dispatch(setAccount({
@@ -197,7 +203,7 @@ export const claimDailyLoginAsync = createAsyncThunk(
       }
     } catch (error) {
       console.error(error);
-      alert('An error occurred while claiming your daily login reward.');
+      await showDialog('Could not claim your daily reward.', 'Daily Rewards');
     }
   }
 );
@@ -218,11 +224,13 @@ const accountSlice = createSlice({
       state.tokens = 0;
       state.isLoggedIn = false;
       state.skins = { equipped: 1, owned: [1] };
-      window.phaser_game?.events.emit('tokenUpdate', '');
+      getGameRuntime()?.events.emit('tokenUpdate', '');
       state.is_v1 = false;
       state.xp = 0;
       state.recovered = false;
       state.profiles = { equipped: 1, owned: [1] };
+      state.themes = { equipped: 1, owned: [1] };
+      state.hudThemes = { equipped: 1, owned: [1] };
       state.bio = '';
       state.tags = { tags: [], colors: [] };
       state.isCrazygames = false;
@@ -254,6 +262,8 @@ const accountSlice = createSlice({
       state.xp = action.payload.xp;
       state.recovered = action.payload.recovered;
       state.profiles = action.payload.profiles;
+      state.themes = action.payload.themes ?? { equipped: 1, owned: [1] };
+      state.hudThemes = action.payload.hudThemes ?? { equipped: 1, owned: [1] };
       state.bio = action.payload.bio;
       state.tags = action.payload.tags;
       state.isCrazygames = action.payload.isCrazygames;
@@ -261,7 +271,7 @@ const accountSlice = createSlice({
       state.dailyLogin = action.payload.dailyLogin || state.dailyLogin;
       if (previousToken !== state.secret) {
         console.log('Token updated');
-        window.phaser_game?.events.emit('tokenUpdate', state.secret);
+        getGameRuntime()?.events.emit('tokenUpdate', state.secret);
 
         try {
           window.localStorage.setItem('secret', state.secret);
@@ -287,7 +297,7 @@ const accountSlice = createSlice({
       console.log('Token updated');
 
       if (state.secret) {
-        window.phaser_game?.events.emit('tokenUpdate', state.secret);
+        getGameRuntime()?.events.emit('tokenUpdate', state.secret);
       }
 
       try {

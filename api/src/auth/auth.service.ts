@@ -38,9 +38,6 @@ export class AuthService {
     if (await this.accountsService.findOneWithLowercase({ where: { username: data.username } })) {
       throw new UnauthorizedException('Username already exists');
     }
-    if (data.email && await this.accountsService.findOneWithLowercase({ where: { email: data.email } })) {
-      throw new UnauthorizedException('Email already exists');
-    }
     const secret = uuidv4();
     const account = await this.accountsService.create({secret, ...data});
     return { account: this.accountsService.sanitizeAccount(account), secret };
@@ -87,9 +84,8 @@ export class AuthService {
     return { account: this.accountsService.sanitizeAccount(account), secret };
   }
 
-  async crazygamesLogin(token: string, crazygamesUserId: string, username: string) {
+  async crazygamesLogin(token: string, clientUserId?: string) {
     try {
-      console.log('[CrazyGames Auth] Starting login for user:', crazygamesUserId, 'username:', username);
       const verified = await this.verifyCrazygamesToken(token);
 
       if (!verified) {
@@ -97,10 +93,11 @@ export class AuthService {
         throw new UnauthorizedException('Token verification failed');
       }
 
-      if (verified.userId !== crazygamesUserId) {
-        console.error('[CrazyGames Auth] User ID mismatch:', verified.userId, '!==', crazygamesUserId);
-        throw new UnauthorizedException('User ID mismatch');
+      if (clientUserId && clientUserId !== verified.userId) {
+        console.warn('[CrazyGames Auth] Ignoring client identity mismatch; using verified token identity');
       }
+
+      const crazygamesUserId = verified.userId;
 
       console.log('[CrazyGames Auth] Token verified successfully for user:', verified.userId);
 
@@ -124,7 +121,7 @@ export class AuthService {
       }
 
       // Account doesn't exist, create a new one
-      let sanitizedUsername = username.replace(/\./g, '_');
+      let sanitizedUsername = verified.username.replace(/\./g, '_');
 
       sanitizedUsername = AuthService.stripCrazygamesRandomSuffix(sanitizedUsername);
 
@@ -211,6 +208,13 @@ export class AuthService {
 
   async checkInAccount(account: Account) {
     return this.accountsService.checkIn(account);
+  }
+
+  async setMoreAds(account: Account, enabled: boolean) {
+    if (account.adSupporter !== enabled) {
+      await this.accountsService.update(account.id, { adSupporter: enabled });
+    }
+    return { success: true, adSupporter: enabled };
   }
 
   private static stripCrazygamesRandomSuffix(username: string): string {

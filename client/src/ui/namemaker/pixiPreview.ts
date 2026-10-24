@@ -9,10 +9,10 @@ import {
   TextStyle,
   TilingSprite,
   SCALE_MODES,
-} from 'pixi.js';
+} from 'pixi.js-legacy';
 import * as cosmetics from '../../game/cosmetics.json';
 import { withAssetVersion } from '../../assetVersion';
-import { NameStyle, CLAN_COLOR } from '../../game/nameStyles';
+import { NameStyle, resolveClanColor } from '../../game/nameStyles';
 import { buildNameTag } from '../../game/pixiNameTag';
 
 const { skins } = cosmetics as any;
@@ -195,7 +195,7 @@ export class PixiNamePreview {
       fontWeight: '700',
       fontSize: 42,
       lineJoin: 'round',
-      fill: CLAN_COLOR,
+      fill: resolveClanColor(this.curClan),
       stroke: '#000000',
       strokeThickness: 5,
     });

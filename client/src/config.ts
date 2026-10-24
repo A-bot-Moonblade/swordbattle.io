@@ -9,7 +9,6 @@ interface Config {
   apiEndpointBackup: string | undefined;
   viewportSize: number;
   cursorUrl?: string;
-  recaptchaClientKey: string;
 }
 
 export const config: Config = {
@@ -21,7 +20,6 @@ export const config: Config = {
   serverUSBackup: process.env.REACT_APP_ENDPOINT_US_BACKUP || '',
   apiEndpoint: process.env.REACT_APP_API || 'localhost:8080',
   apiEndpointBackup: process.env.REACT_APP_API_BACKUP,
-  recaptchaClientKey: process.env.REACT_APP_RECAPTCHA_CLIENT_KEY || '',
   viewportSize: 1400,
   cursorUrl: "cursor: url(/assets/img/cursor.cur) 20 20, crosshair;"
 };

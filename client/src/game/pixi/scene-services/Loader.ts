@@ -1,5 +1,10 @@
 import { TextureManager } from './TextureManager';
 import { withAssetVersion } from '../../../assetVersion';
+import { span } from '../../../bootTiming';
+import {
+  ldBatchStart, ldBatchEnd, ldQueued, ldStarted, ldAttempt, ldAttemptFailed,
+  ldOnload, ldUploaded, ldCacheHit, ldDone, ldProgress,
+} from '../../../loaderDebug';
 
 type ProgressCb = (value: number) => void;
 type CompleteCb = () => void;
@@ -57,25 +62,59 @@ export class Loader {
 
     const total = imgQueue.length + audQueue.length;
     if (total === 0) { this.emitProgress(1); this.fireComplete(onceC); return; }
+    const endBatch = span(`loader:batch(${imgQueue.length} img, ${audQueue.length} audio)`);
+    for (const { key, url } of imgQueue) ldQueued(key, url, 'image');
+    for (const { key, url } of audQueue) ldQueued(key, Array.isArray(url) ? url[0] : url, 'audio');
     let done = 0;
-    const tick = () => { done++; this.emitProgress(done / total); };
-    const imgs = imgQueue.map(({ key, url }) => this.loadImage(key, url).then((ok) => { tick(); return ok ? null : { key, url, type: 'image' }; }));
-    const auds = audQueue.map(({ key, url }) =>
-      (this._sound ? this._sound.decode(key, Array.isArray(url) ? url[0] : url) : Promise.resolve()).then(() => { tick(); return null; }),
-    );
-    const results = await Promise.all([...imgs, ...auds]);
+    const tick = () => { done++; ldProgress(() => this.emitProgress(done / total)); };
+    const jobs: Array<() => Promise<any>> = [
+      ...imgQueue.map(({ key, url }) => async () => {
+        const ok = await this.loadImage(key, url);
+        tick();
+        return ok ? null : { key, url, type: 'image' };
+      }),
+      ...audQueue.map(({ key, url }) => async () => {
+        ldStarted(key);
+        try {
+          if (this._sound) await this._sound.decode(key, Array.isArray(url) ? url[0] : url);
+          ldOnload(key, 1); ldUploaded(key); ldDone(key, true);
+          return null;
+        } catch (e) {
+          ldDone(key, false);
+          return { key, url, type: 'audio' };
+        } finally {
+          tick();
+        }
+      }),
+    ];
+    const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      || (navigator.maxTouchPoints > 1 && /Macintosh|Mac OS/i.test(navigator.userAgent));
+    const concurrency = mobile ? 4 : 10;
+    ldBatchStart(imgQueue.length, audQueue.length, concurrency);
+    const results = new Array(jobs.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < jobs.length) {
+        const index = next++;
+        results[index] = await jobs[index]();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
 
+    endBatch();
+    ldBatchEnd();
     const failed = results.find((r) => r);
     if (failed) this.fireError(failed, onceE);
     this.fireComplete(onceC);
   }
 
   private loadImage(key: string, url: string): Promise<boolean> {
-    if (this._textures.exists(key)) return Promise.resolve(true);
+    if (this._textures.exists(key)) { ldCacheHit(key); ldDone(key, true); return Promise.resolve(true); }
     const pending = this.inflight.get(key);
     if (pending) return pending;
+    ldStarted(key);
     const p = new Promise<boolean>((resolve) => {
-      const maxAttempts = 3;
+      const maxAttempts = 4;
       let settled = false;
       let attempt = 0;
       let timer: any = null;
@@ -85,6 +124,7 @@ export class Loader {
         settled = true;
         clearTimeout(timer);
         this.inflight.delete(key);
+        ldDone(key, ok);
         resolve(ok);
       };
 
@@ -99,15 +139,27 @@ export class Loader {
           else finish(false);
         }, 15000);
         img.crossOrigin = 'anonymous';
-        img.onload = () => { let ok = true; try { this._textures.addImage(key, img); } catch (e) { ok = false; } finish(ok); };
+        img.onload = () => {
+          // Split network+decode from texture creation: onload means the bytes are
+          // decoded, addImage is the main-thread GPU/texture cost.
+          ldOnload(key, myAttempt);
+          let ok = true;
+          try { this._textures.addImage(key, img); } catch (e) { ok = false; }
+          ldUploaded(key);
+          finish(ok);
+        };
         img.onerror = () => {
           if (settled || myAttempt !== attempt) return;
+          ldAttemptFailed(key, myAttempt);
+          if (myAttempt === 1) { tryLoad(); return; }
           console.warn('[pixi-loader] failed to load', key, url, 'attempt', myAttempt);
           if (attempt < maxAttempts) setTimeout(() => { if (!settled && myAttempt === attempt) tryLoad(); }, 500 * myAttempt);
           else finish(false);
         };
         const base = withAssetVersion(url);
-        img.src = myAttempt > 1 ? base + (base.indexOf('?') === -1 ? '?' : '&') + 'r=' + myAttempt : base;
+        const finalUrl = myAttempt > 2 ? base + (base.indexOf('?') === -1 ? '?' : '&') + 'r=' + myAttempt : base;
+        ldAttempt(key, myAttempt, finalUrl);
+        img.src = finalUrl;
       };
       tryLoad();
     });

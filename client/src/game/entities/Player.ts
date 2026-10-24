@@ -10,14 +10,14 @@ import * as cosmetics from '../cosmetics.json';
 import { FootstepTrail } from '../effects/Footsteps';
 import { screenEffectsRuntime } from '../effects/screenEffectsState';
 import { skinBodyScales } from '../skinScales';
-import { resolveNameStyle, CLAN_COLOR } from '../nameStyles';
+import { resolveNameStyle, resolveClanColor } from '../nameStyles';
 import { buildNameTag } from '../pixiNameTag';
 const {skins} = cosmetics;
 
 const particlePool: Phaser.GameObjects.Sprite[] = [];
 const graphicsPool: Phaser.GameObjects.Graphics[] = [];
-const MAX_PARTICLE_POOL = 200;
-const MAX_GRAPHICS_POOL = 50;
+const maxParticlePool = 200;
+const maxGraphicsPool = 50;
 
 function getParticle(game: Phaser.Scene, key: string) {
   let p = particlePool.pop();
@@ -33,7 +33,7 @@ function getParticle(game: Phaser.Scene, key: string) {
 function releaseParticle(p: Phaser.GameObjects.Sprite) {
   p.setActive(false).setVisible(false);
   p.x = 0; p.y = 0;
-  if (particlePool.length < MAX_PARTICLE_POOL) {
+  if (particlePool.length < maxParticlePool) {
     particlePool.push(p);
   } else {
     p.destroy();
@@ -53,7 +53,7 @@ function getGraphics(game: Phaser.Scene) {
 function releaseGraphics(g: Phaser.GameObjects.Graphics) {
   g.clear();
   g.setActive(false).setVisible(false);
-  if (graphicsPool.length < MAX_GRAPHICS_POOL) {
+  if (graphicsPool.length < maxGraphicsPool) {
     graphicsPool.push(g);
   } else {
     g.destroy();
@@ -196,7 +196,7 @@ class Player extends BaseEntity {
       isPlayer: true,
     });
     const nameY = -this.effectiveBodyHeight / 2 - 50;
-    const ns = resolveNameStyle(this.name, !!this.account, 'game')!;
+    const ns = resolveNameStyle(this.name, !!this.account, 'game', !!this.account?.adSupporter)!;
     const nameTag = buildNameTag(this.name, ns, 42);
     const nameW = (nameTag as any).textWidth || 0;
 
@@ -206,7 +206,7 @@ class Player extends BaseEntity {
       clanText.setFontFamily("'Saira', sans-serif");
       clanText.setFontSize(42);
       clanText.setFontStyle('700');
-      clanText.setFill(CLAN_COLOR);
+      clanText.setFill(resolveClanColor(this.clan));
       clanText.setStroke('#000000', 5);
       clanText.setShadow(0, 0, '#000000', 0, false, false);
       clanText.setOrigin(0, 1);
@@ -228,15 +228,6 @@ class Player extends BaseEntity {
       .setOrigin(0.5, 1)
       .setFill('#ffffff');
 
-    this.choosingText = this.game.add.text(0, 0, 'Choosing an upgrade...', {
-      fontFamily: 'Saira, sans-serif',
-      fontSize: '60px',
-      fontStyle: 'bold',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 6,
-      align: 'center',
-    }).setOrigin(0.5, 0.5).setAlpha(0);
 
     this.cardSummaryBg = this.game.add.graphics();
     this.cardSummaryContainer = this.game.add.container(0, -this.effectiveBodyHeight / 2 - 130, [this.cardSummaryBg]);
@@ -250,7 +241,7 @@ class Player extends BaseEntity {
     this.submergedShadow.fillCircle(0, 0, submergedRadius);
     this.submergedShadow.setAlpha(0);
 
-    this.container = this.game.add.container(this.shape.x, this.shape.y, [this.shadow, this.evolutionOverlayShadow, this.swordShadow, this.submergedShadow, this.bodyContainer, this.cardSummaryContainer, this.messageText, this.choosingText]);
+    this.container = this.game.add.container(this.shape.x, this.shape.y, [this.shadow, this.evolutionOverlayShadow, this.swordShadow, this.submergedShadow, this.bodyContainer, this.cardSummaryContainer, this.messageText]);
     this.container.addChildAt(nameTag, 6);
     if (clanText) this.container.add(clanText);
 
@@ -374,13 +365,31 @@ class Player extends BaseEntity {
     });
   }
 
+  ensureChoosingText(): Phaser.GameObjects.Text | null {
+    if (this.choosingText) return this.choosingText;
+    if (!this.container) return null;
+    this.choosingText = this.game.add.text(0, 0, 'Choosing an upgrade...', {
+      fontFamily: 'Saira, sans-serif',
+      fontSize: '60px',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 6,
+      align: 'center',
+    }).setOrigin(0.5, 0.5).setAlpha(0);
+    this.container.add(this.choosingText);
+    return this.choosingText;
+  }
+
   updateChoosingOverlay(choosing: boolean) {
-    if (!this.choosingText) return;
+    if (!choosing && !this.choosingText) return;
+    const text = this.ensureChoosingText();
+    if (!text) return;
     if (choosing) {
-      this.choosingText.setAlpha(1);
+      text.setAlpha(1);
     } else {
       this.game.tweens.add({
-        targets: this.choosingText,
+        targets: text,
         alpha: 0,
         duration: 300,
       });
@@ -1405,12 +1414,15 @@ class Player extends BaseEntity {
   update(dt: number) {
     super.update(dt);
 
-    if (this.choosingText && !this.isMe) {
+    if (!this.isMe) {
       const isTutorial = (this as any).isTutorial;
       if (isTutorial) {
-        this.choosingText.setText('In Tutorial');
-        this.choosingText.setAlpha(1);
-      } else {
+        const text = this.ensureChoosingText();
+        if (text) {
+          text.setText('In Tutorial');
+          text.setAlpha(1);
+        }
+      } else if (this.choosingText) {
         this.choosingText.setAlpha(0);
       }
     }
@@ -1502,8 +1514,12 @@ class Player extends BaseEntity {
     let rt = this.shadowRT;
     if (!rt) {
       if (!on || offCamera) return;
-      const rtSize = Math.ceil(Math.max(this.body.width, this.body.height) * 3.2);
+      const fullSize = Math.ceil(Math.max(this.body.width, this.body.height) * 3.2);
+      const rtSize = Math.min(1024, Math.ceil(fullSize / 2));
       rt = this.shadowRT = this.game.add.renderTexture(0, 0, rtSize, rtSize).setOrigin(0.5, 0.5);
+      (rt as any).renderScale = rtSize / fullSize;
+      (rt as any).shadowFullSize = fullSize;
+      rt.setScale(fullSize / rtSize);
       rt.setAlpha(BaseEntity.shadow.alpha * (1 - this._submergedProgress));
       this.container.addAt(rt, 0);
     }
@@ -1512,23 +1528,26 @@ class Player extends BaseEntity {
     if (!on) return;
     if (offCamera) return;
 
-    const evr = this.evoShadowActive ? Math.round(this.evolutionOverlayShadow.rotation * 100) : 0;
-    const sig = Math.round(this.shadow.rotation * 100)
-      + (this.shadow.x | 0) * 7 + (this.shadow.y | 0) * 13
-      + Math.round(this.swordShadow.rotation * 100) * 17
-      + (this.swordShadow.x | 0) * 23 + (this.swordShadow.y | 0) * 29
+    const evr = this.evoShadowActive ? Math.round(this.evolutionOverlayShadow.rotation * 25) : 0;
+    const sig = Math.round(this.shadow.rotation * 25)
+      + ((this.shadow.x / 2) | 0) * 7 + ((this.shadow.y / 2) | 0) * 13
+      + Math.round(this.swordShadow.rotation * 25) * 17
+      + ((this.swordShadow.x / 2) | 0) * 23 + ((this.swordShadow.y / 2) | 0) * 29
       + Math.round(this.swordShadow.scaleX * 100) * 37
       + (this.evoShadowActive ? 1 : 0) * 1000003
       + (this.swordFlying ? 1 : 0) * 1000033
       + (this._swordVisibleForShadow ? 0 : 900007)
       + (this.sword2Shadow && this.swordContainer2?.visible
-          ? Math.round((this.sword2Shadow.rotation || 0) * 100) * 43 + ((this.sword2Shadow.x | 0)) * 47 : 0)
+          ? Math.round((this.sword2Shadow.rotation || 0) * 25) * 43 + (((this.sword2Shadow.x / 2) | 0)) * 47 : 0)
       + evr * 41;
     if (sig === this.shadowSig) return;
+    const now = performance.now();
+    if (now < this.shadowRTNextAt) return;
     this.shadowSig = sig;
+    this.shadowRTNextAt = now + 33;
 
-    const ox = rt.width / 2, oy = rt.height / 2;
-    rt.clear();
+    const full = (rt as any).shadowFullSize || rt.width;
+    const ox = full / 2, oy = full / 2;
     rt.beginDraw();
     rt.batchDraw(this.shadow, ox + this.shadow.x, oy + this.shadow.y);
     if (this.evoShadowActive) {
@@ -1543,6 +1562,7 @@ class Player extends BaseEntity {
     rt.endDraw();
   }
   private shadowSig = NaN;
+  private shadowRTNextAt = 0;
 
   updateDiscoEffects(dt: number) {
     const discoFieldActive = this.evolution === EvolutionTypes.Disco && !!(this.flags && this.flags[FlagTypes.DiscoFieldActive]);

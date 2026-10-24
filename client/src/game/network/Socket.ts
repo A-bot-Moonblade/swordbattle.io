@@ -1,9 +1,8 @@
 import * as Protocol from './Protocol';
+import { registerIntegrityShutdown, registerIntegrityTarget } from '../integrity';
 
 const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-window.socket = null;
-
-const enableDecodeWorker = false;
+registerIntegrityTarget(WebSocket.prototype, ['close', 'send']);
 
 const usePooledDecode = true;
 const decodeHarness = typeof window !== 'undefined' && window.location.search.includes('decodecheck');
@@ -30,9 +29,6 @@ class Socket {
   private queue: any[];
   private debugMode: boolean = false;
 
-  private decoder: Worker | null = null;
-  private usingWorker = false;
-  private seq = 0;
   private onMessage: ((payload: any) => void) | null = null;
 
   constructor() {
@@ -42,32 +38,6 @@ class Socket {
     try {
       this.debugMode = window.location.search.includes("debugAlertMode");
       } catch(e) {}
-
-    if (enableDecodeWorker) this.initDecoder();
-  }
-
-  private initDecoder() {
-    try {
-      const w = new Worker(new URL('./decoder.worker.ts', import.meta.url));
-      w.onmessage = (e: MessageEvent) => {
-        const d = e.data || {};
-        if (d.ready) { this.usingWorker = true; return; }
-        if (!this.usingWorker) return;
-        if (d.error) { console.warn('[Socket] worker decode error:', d.error); return; }
-        if (d.payload && this.onMessage) this.onMessage(d.payload);
-      };
-      w.onerror = () => this.disableWorker();
-      this.decoder = w;
-      w.postMessage({ init: true });
-    } catch (e) {
-      this.disableWorker();
-    }
-  }
-
-  private disableWorker() {
-    this.usingWorker = false;
-    try { this.decoder?.terminate(); } catch (e) {}
-    this.decoder = null;
   }
 
   private syncDecode(data: ArrayBuffer) {
@@ -104,19 +74,30 @@ class Socket {
     const endpoint = `${protocol}${address}${authSecret ? `${sep}secret=${encodeURIComponent(authSecret)}` : ''}`;
     this.onMessage = onMessage;
 
-    if (window.socket !== null) {
-      window.socket.close();
+    if (this.socket !== null) {
+      this.socket.close();
     }
 
     this.socket = new WebSocket(endpoint);
     this.socket.binaryType = 'arraybuffer';
-    window.socket = this.socket;
+
+    const ws = this.socket;
+    const connectTimer = setTimeout(() => {
+      if (ws.readyState === 0) {
+        console.warn('[Socket] connection timed out:', endpoint);
+        try { ws.close(); } catch (e) {}
+      }
+    }, 12000);
 
     this.socket.addEventListener('open', () => {
+      clearTimeout(connectTimer);
       this.onOpen();
       onOpen();
     });
     this.socket.addEventListener('close', (event: CloseEvent) => {
+      clearTimeout(connectTimer);
+      // A superseded socket must never tear down the connection that replaced it.
+      if (this.socket !== ws) return;
       if(this.debugMode) {
         alert('Connection closed: ' + event.code + ' ' + event.reason);
       }
@@ -125,16 +106,10 @@ class Socket {
     });
     this.socket.addEventListener('message', (message: any) => {
       if (typeof message.data === 'string') return;
+      // Drop frames from a socket we've already moved on from — its GameState
+      // and display objects may already be destroyed.
+      if (this.socket !== ws) return;
 
-      if (this.usingWorker && this.decoder) {
-        try {
-          this.seq++;
-          this.decoder.postMessage({ seq: this.seq, buffer: message.data }, [message.data]);
-          return;
-        } catch (e) {
-          this.disableWorker();
-        }
-      }
       this.syncDecode(message.data);
     });
 
@@ -157,12 +132,17 @@ class Socket {
   }
 
   close() {
+    // Drop the handler first: it holds the GameState, whose entities may be
+    // destroyed moments from now.
+    this.onMessage = null;
     if (this.socket) {
       this.socket.close(1000);
       this.socket = null;
-      window.socket = null;
     }
   }
 }
 
-export default new Socket();
+const socket = new Socket();
+registerIntegrityShutdown(() => socket.close());
+
+export default socket;
